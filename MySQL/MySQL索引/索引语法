@@ -1,0 +1,20 @@
+# 索引的一些语法☘️☘️☘️
+
+##  创建索引
+
+* ```mysql
+  create [unique|fulltext] index index_name on table_name (index_col_name,...);
+  ```
+
+## 查看索引
+* ```mysql
+  show index from table_name;
+  ```
+
+## 删除索引
+
+* ```mysql
+  drop index index_name on table_name;
+  ```
+
+  
