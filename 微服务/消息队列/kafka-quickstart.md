@@ -29,69 +29,58 @@
 
 ### 2.1 整体架构图
 
+```mermaid
+graph LR
+    subgraph Producer["生产者"]
+        P["Producer"]
+    end
+    
+    subgraph Cluster["Kafka 集群"]
+        B1["Broker 1"]
+        B2["Broker 2"]
+        B3["Broker 3"]
+    end
+    
+    subgraph Registry["元数据管理"]
+        Z["ZooKeeper / KRaft"]
+    end
+    
+    subgraph Consumer["消费者组"]
+        C1["Consumer 1"]
+        C2["Consumer 2"]
+        C3["Consumer 3"]
+    end
+    
+    P --> B1
+    P --> B2
+    P --> B3
+    
+    B1 <--> B2
+    B2 <--> B3
+    
+    Z --> B1
+    Z --> B2
+    Z --> B3
+    
+    B1 --> C1
+    B2 --> C2
+    B3 --> C3
 ```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Kafka 集群（Cluster）                            │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐ │
-│  │      Broker 1       │  │      Broker 2       │  │      Broker 3       │ │
-│  │  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │ │
-│  │  │ Partition 0   │  │  │  │ Partition 1   │  │  │  │ Partition 2   │  │ │
-│  │  │ (Leader)     │  │  │  │ (Leader)     │  │  │  │ (Leader)     │  │ │
-│  │  │ [日志文件]    │  │  │  │ [日志文件]    │  │  │  │ [日志文件]    │  │ │
-│  │  └───────────────┘  │  │  └───────────────┘  │  │  └───────────────┘  │ │
-│  │  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │ │
-│  │  │ Partition 2   │  │  │  │ Partition 0   │  │  │  │ Partition 1   │  │ │
-│  │  │ (Follower)   │  │  │  │ (Follower)   │  │  │  │ (Follower)   │  │ │
-│  │  │ [日志文件]    │  │  │  │ [日志文件]    │  │  │  │ [日志文件]    │  │ │
-│  │  └───────────────┘  │  │  └───────────────┘  │  │  └───────────────┘  │ │
-│  └─────────────────────┘  └─────────────────────┘  └─────────────────────┘ │
-│                                    │                                        │
-│                         ZooKeeper / KRaft                                  │
-│                    （协调元数据、Leader 选举）                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-         │                                        │
-         ▼                                        ▼
-┌─────────────────┐                     ┌─────────────────┐
-│    Producer     │                     │ Consumer Group  │
-│  （生产者）      │                     │  （消费者组）     │
-│                 │                     │  ┌───────────┐  │
-│ 按 key 路由到    │                     │  │Consumer 1 │  │
-│ 特定 Partition  │                     │  └───────────┘  │
-│                 │                     │  ┌───────────┐  │
-│                 │                     │  │Consumer 2 │  │
-│                 │                     │  └───────────┘  │
-└─────────────────┘                     │  ┌───────────┐  │
-                                        │  │Consumer 3 │  │
-                                        │  └───────────┘  │
-                                        └─────────────────┘
-```
 
-### 2.2 Partition（分区）—— Kafka 并发的核心
+### 2.2 Partition 与 Consumer 分配关系
 
-**为什么 Partition 是并发单位？**
-
-```
-Topic: campus-water（3 个 Partition）
-
-┌─────────────────────────────────────────────────────────────┐
-│ Partition 0                    Partition 1              Partition 2 │
-│ ┌─────────────────────────┐  ┌─────────────────────────┐  ┌─────────────────────────┐  │
-│ │ offset: 0               │  │ offset: 0               │  │ offset: 0               │  │
-│ │ key=device-001          │  │ key=device-002          │  │ key=device-003          │  │
-│ │ value={"flow":1.5}      │  │ value={"flow":2.0}      │  │ value={"flow":1.8}      │  │
-│ ├─────────────────────────┤  ├─────────────────────────┤  ├─────────────────────────┤  │
-│ │ offset: 1               │  │ offset: 1               │  │ offset: 1               │  │
-│ │ key=device-001          │  │ key=device-002          │  │ key=device-003          │  │
-│ │ value={"flow":1.6}      │  │ value={"flow":2.1}      │  │ value={"flow":1.9}      │  │
-│ └─────────────────────────┘  └─────────────────────────┘  └─────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
-
-Consumer Group: water-group（3 个 Consumer）
-
-分配关系：
-  Partition 0 ──► Consumer 1（处理 device-001 的数据）
-  Partition 1 ──► Consumer 2（处理 device-002 的数据）
-  Partition 2 ──► Consumer 3（处理 device-003 的数据）
+```mermaid
+graph LR
+    P0["Partition 0"] --> C0["Consumer 1"]
+    P1["Partition 1"] --> C1["Consumer 2"]
+    P2["Partition 2"] --> C2["Consumer 3"]
+    
+    style P0 fill:#e3f2fd
+    style P1 fill:#e3f2fd
+    style P2 fill:#e3f2fd
+    style C0 fill:#f3e5f5
+    style C1 fill:#f3e5f5
+    style C2 fill:#f3e5f5
 ```
 
 **关键规则：**
@@ -99,61 +88,279 @@ Consumer Group: water-group（3 个 Consumer）
 2. **消费者数量 ≤ Partition 数量**，否则多余的消费者会空闲
 3. **相同 key 的消息永远路由到同一 Partition**（保证同 key 消息的顺序）
 
-### 2.3 日志存储结构（Partition 内部）
+### 2.3 消费者数与 Partition 数的关系
 
-```
-Partition 0 的物理存储结构：
-
-┌─────────────────────────────────────────────────────────────────────────┐
-│                           Partition 0                                   │
-│  ┌───────────┬───────────┬───────────┬───────────┬───────────┐         │
-│  │ Segment 0 │ Segment 1 │ Segment 2 │ Segment 3 │ Segment N │  ...    │
-│  │ 000000000 │ 000000001 │ 000000002 │ 000000003 │           │         │
-│  │ .log 文件 │  .log 文件 │  .log 文件│  .log 文件│           │         │
-│  │ 000000000 │ 000000001 │ 000000002 │ 000000003 │           │         │
-│  │ .index 文件│  .index 文件│  .index 文件│  .index 文件│           │         │
-│  └───────────┴───────────┴───────────┴───────────┴───────────┘         │
-└─────────────────────────────────────────────────────────────────────────┘
-
-每个 Segment 包含：
-- .log 文件：存储实际消息（append-only 日志）
-- .index 文件：存储消息索引（稀疏索引，按偏移量定位）
-- .timeindex 文件：按时间戳索引
-
-Offset 说明：
-- GlobalOffset：绝对偏移量，Topic 全局唯一（Partition 0 的 offset 从 0 开始）
-- SegmentOffset：段内偏移量，每个 Segment 重新从 0 开始
+```mermaid
+graph LR
+    subgraph 场景1["理想情况：消费者数 = Partition 数"]
+        T1["Topic: order (3 Partition)"]
+        T1 --> P0["P0"]
+        T1 --> P1["P1"]
+        T1 --> P2["P2"]
+        P0 --> C0["C0"]
+        P1 --> C1["C1"]
+        P2 --> C2["C2"]
+    end
 ```
 
-### 2.4 Consumer Group 消费模型
-
+```mermaid
+graph LR
+    subgraph 场景2["消费者数 < Partition 数"]
+        T2["Topic: order (4 Partition)"]
+        T2 --> P0b["P0"]
+        T2 --> P1b["P1"]
+        T2 --> P2b["P2"]
+        T2 --> P3b["P3"]
+        P0b --> C0b["C0 (处理P0,P2)"]
+        P1b --> C1b["C1 (处理P1,P3)"]
+        P2b --> C0b
+        P3b --> C1b
+    end
 ```
-场景 1：消费者数 = Partition 数（理想情况）
-┌─────────────────────────────────┐
-│ Topic: order (3 Partition)      │
-│  P0 ──► C0                      │
-│  P1 ──► C1                      │
-│  P2 ──► C2                      │
-└─────────────────────────────────┘
 
-场景 2：消费者数 < Partition 数
-┌─────────────────────────────────┐
-│ Topic: order (4 Partition)      │
-│  P0 ──► C0（处理 P0、P2）        │
-│  P1 ──► C1（处理 P1、P3）        │
-│  P2 ──┤                        │
-│  P3 ──┤                        │
-└─────────────────────────────────┘
-
-场景 3：消费者数 > Partition 数（多余消费者空闲）
-┌─────────────────────────────────┐
-│ Topic: order (2 Partition)     │
-│  P0 ──► C0                      │
-│  P1 ──► C1                      │
-│  P2 ──✗（空闲）                 │
-│  P3 ──✗（空闲）                 │
-└─────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph 场景3["消费者数 > Partition 数"]
+        T3["Topic: order (2 Partition)"]
+        T3 --> P0c["P0"]
+        T3 --> P1c["P1"]
+        P0c --> C0c["C0"]
+        P1c --> C1c["C1"]
+        C2c["C2 (空闲)"]
+        C3c["C3 (空闲)"]
+    end
 ```
+
+### 2.4 Partition 内部日志结构（⚠️ Kafka 高吞吐的核心设计）
+
+Kafka 把每个 Partition 当成一个**只能追加写、不能修改的日志文件**，再把日志切成一个个 Segment 段来管理。这是 Kafka 高吞吐的基础——理解这一节就理解了 Kafka 一半的设计哲学。
+
+#### 2.4.1 磁盘上的目录布局
+
+一个 Topic-Partition 对应磁盘上一个目录，目录里是**并列的 Segment 文件**（不是链表，是同一目录下的多个文件）：
+
+```mermaid
+graph TB
+    subgraph LogDirs["log.dirs 配置的目录（轮询分配分区）"]
+        D1["/kafka-logs/"]
+    end
+
+    D1 --> P["campus-water-0/  （topic=partitionId）"]
+    D1 --> Q["campus-water-1/"]
+    D1 --> R["campus-water-2/"]
+
+    P --> S0["00000000000000000000.log"]
+    P --> S0i["00000000000000000000.index"]
+    P --> S0t["00000000000000000000.timeindex"]
+    P --> S0c["00000000000000000000.checkpoint"]
+    P --> S1["00000000000005368791.log"]
+    P --> S1i["00000000000005368791.index"]
+    P --> S1t["00000000000005368791.timeindex"]
+    P --> ACTIVE["00000000000010737418.log  ← active（正在写）"]
+
+    style ACTIVE fill:#fff3e0
+```
+
+**关键点：**
+- 目录命名规则：`<topic>-<partitionId>`，例如 `campus-water-0`、`campus-water-1`
+- Segment 文件名 = **20 位零填充的 base offset**，例如 `00000000000000000000.log`（这个段从 offset 0 开始）
+- 同一个 base offset 对应**三件套**：
+  - `00000000000000000000.log` —— 消息主体（二进制 record batch 流）
+  - `00000000000000000000.index` —— offset → 物理位置的稀疏索引
+  - `00000000000000000000.timeindex` —— 时间戳 → offset 的稀疏索引
+- **active segment**：当前正在被 Producer 写入的那一个段（橙色高亮），写满才滚动成关闭段
+- 关闭段还会生成 `.deleted`（待删）、`.cleaned` / `.swap`（compact 中间产物）、`.txnindex`（事务索引，0.11+）等临时文件
+
+#### 2.4.2 消息的物理格式（v2 RecordBatch，Kafka 0.11+）
+
+Kafka 0.11 之前是「裸 message」拼接，0.11 之后改成 **RecordBatch → Record** 的两层结构（KIP-98），目的是支持幂等、事务、压缩。Consumer 拿到的 `ConsumerRecord` 是反序列化后的对象，但落盘的是二进制 batch：
+
+```mermaid
+graph TB
+    subgraph Batch["RecordBatch 头部（49 字节）"]
+        BO["baseOffset 8B"]
+        BL["batchLength 4B"]
+        PLE["partitionLeaderEpoch 4B"]
+        MG["magic 1B（=2）"]
+        CRC["crc32c 4B"]
+        ATT["attributes 2B（压缩/时间戳类型等）"]
+        LOD["lastOffsetDelta 4B"]
+        BTS["baseTimestamp 8B"]
+        MTS["maxTimestamp 8B"]
+        PID["producerId 8B"]
+        PE["producerEpoch 2B"]
+        BS["baseSequence 4B"]
+        CNT["records.count 4B"]
+    end
+
+    subgraph Records["Records[]（变长 varint 编码）"]
+        R1["Record 1<br/>length varint + attrs 1B +<br/>timestampDelta varint + offsetDelta varint +<br/>keyLength varint + Key + valueLength varint + Value + Headers"]
+        R2["Record 2 ..."]
+        RN["Record N ..."]
+        R1 --> R2 --> RN
+    end
+
+    Batch --> Records
+```
+
+**为什么是 Batch 而不是单条消息？**
+- **网络与磁盘 I/O 摊销**：一次顺序写/读多条，比一次写一条快几个数量级
+- **压缩友好**：同一批内多条消息一起压缩，重复 key/value 字段能压掉很多
+- **幂等与事务载体**：`producerId + baseSequence` 字段为幂等 Producer 提供去重依据
+- Kafka 2.8+（KIP-405）增加了 `compactRecordBatch` 单条格式，方便长尾场景
+
+#### 2.4.3 索引机制：为什么 .log 不全量扫描？
+
+`.log` 文件动辄几个 GB，全量顺序扫描读一条消息会非常慢。Kafka 的解法是**稀疏索引**：
+
+| 文件 | 每条条目大小 | 含义 |
+|------|------------|------|
+| `.index` | **8 字节**（4B relativeOffset + 4B physicalPosition） | offset 偏移量 → 在 `.log` 中的字节位置 |
+| `.timeindex` | **12 字节**（8B timestamp + 4B relativeOffset） | 时间戳 → offset |
+
+**稀疏的含义**：不是每条消息都建一条索引，而是每写入 **4 KB** 数据（`log.index.interval.bytes = 4096`）才追加一条索引。所以索引文件本身极小（每 GB 数据约 256 KB 索引），可以**全部装入内存甚至 mmap**。
+
+#### 2.4.4 Offset 查找流程（Consumer 拉取的核心路径）
+
+以「Consumer 要从 offset 12345 开始读」为例，整个过程只涉及**两次二分 + 一次顺序扫描**：
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as Consumer
+    participant FS as File System / Page Cache
+    participant L as Partition 目录
+    participant IDX as .index
+    participant LOG as .log
+
+    C->>FS: 读取 offset=12345
+    FS->>L: ① 二分定位 Segment
+    Note over FS,L: 在所有 segment 的 base offset 中二分<br/>找到 baseOffset ≤ 12345 的最大段
+    FS->>IDX: ② mmap 加载该段的 .index
+    FS->>IDX: ③ 二分查找索引槽
+    Note over FS,IDX: 在索引条目中找到 ≤ 12345 的最大项<br/>得到 physicalPosition（.log 中的字节位置）
+    FS->>LOG: ④ 从 physicalPosition 顺序扫描
+    Note over FS,LOG: 跳过前面的 record，命中 offset=12345 的 batch
+    FS-->>C: ⑤ 返回 Record（含 key/value/timestamp/headers）
+```
+
+**关键设计：**
+- 步骤 ① 的 segment 列表本身就几百字节，可常驻内存
+- 步骤 ②③ 的 `.index` 通过 **mmap** 加载到 page cache（KIP-102，0.11+），不走 JVM 堆
+- 步骤 ④ 顺序扫描最多扫 4 KB（一个索引区间），磁盘上是顺序 I/O，非常快
+- 时间戳查找（`offsetsForTimes`）走 `.timeindex` → 拿到 offset → 再走上面流程
+
+#### 2.4.5 Segment 滚动策略（什么时候切新段？）
+
+active segment 写满后会被**关闭**（frozen），下一个消息写到新段里。触发滚动有三种条件，**任一满足就滚动**：
+
+| 触发条件 | 配置项 | 默认值 |
+|---------|--------|--------|
+| 大小达到阈值 | `log.segment.bytes` | **1073741824（1 GiB）** |
+| 打开时长达到阈值 | `log.segment.ms` | **604800000（7 天）** |
+| 索引文件大小达到阈值 | `log.index.size.max.bytes` | **10485760（10 MB）** |
+
+另外还有：
+- `log.roll.ms` / `log.roll.hours`：强制空段的最大打开时长（避免空段长期存在）
+- 关闭后延迟 `file.delete.delay.ms`（默认 60000ms = 1 分钟）才真正物理删除，给 Follower 同步留时间
+
+#### 2.4.6 保留与清理（消息什么时候被删？）
+
+两种 cleanup 策略，由 `log.cleanup.policy` 控制：
+
+| 策略 | 配置 | 行为 | 适用场景 |
+|------|------|------|---------|
+| **delete**（默认） | `log.retention.ms/minutes/hours` / `log.retention.bytes` | 按时间或大小删除旧段 | 通用日志、消息队列 |
+| **compact** | `min.cleanable.dirty.ratio` | 只保留每个 key 的最新 value | 状态快照、配置中心（如 `__consumer_offsets`） |
+
+**delete 模式关键参数：**
+- `log.retention.hours` 默认 **168（7 天）**
+- `log.retention.bytes` 默认 **-1（不限）**
+- `log.retention.check.interval.ms` 默认 **300000（5 分钟检查一次）**
+
+**compact 模式关键概念：**
+- **tombstone**（墓碑）：用 `null` value 表示「删除该 key」
+- tombstone 保留 `delete.retention.ms`（默认 24 小时）后才真正物理删除，给消费侧留缓冲
+- `min.cleanable.dirty.ratio` 默认 **0.5**：脏段（未压缩）占比超过 50% 才触发压缩
+
+#### 2.4.7 为什么这套设计能做到高吞吐？
+
+| 设计 | 解决的问题 |
+|------|-----------|
+| **顺序磁盘 I/O** | Producer 只追加写，无随机寻道，机械盘也能扛住高吞吐 |
+| **Page Cache** | OS 把热数据缓存在内存，读几乎不落盘 |
+| **零拷贝 sendfile** | Consumer fetch 时由 `FileChannel.transferTo` 直接从 page cache 发到 socket，绕过 user space |
+| **稀疏索引 + mmap** | 索引文件极小、全部常驻内存；二分查找 O(log n) |
+| **批量读写** | Producer/Consumer 都按 batch 收发，摊销网络与系统调用开销 |
+| **关闭段只读** | 不需要并发锁，多 Consumer 可并行读，互不干扰 |
+
+**一句话总结**：Kafka 把随机写磁盘变成了顺序写磁盘，把随机读变成了「内存二分 + 顺序读」，所以单机也能扛住百万级 QPS。
+
+#### 2.4.8 关键参数速查（Java 后端必背）
+
+| 参数 | 默认值 | 含义 |
+|------|--------|------|
+| `log.segment.bytes` | 1073741824 | 段大小上限（1 GiB） |
+| `log.segment.ms` | 604800000 | 段最长打开时间（7 天） |
+| `log.index.interval.bytes` | 4096 | 每 4 KB 数据追加一条索引 |
+| `log.index.size.max.bytes` | 10485760 | 索引文件大小上限（10 MB） |
+| `log.retention.hours` | 168 | 数据保留时间（7 天） |
+| `log.retention.bytes` | -1 | 数据保留大小（不限） |
+| `log.cleanup.policy` | `delete` | 清理策略 |
+| `log.flush.interval.messages` | Long.MAX_VALUE | 刷盘条数（默认不强制） |
+| `file.delete.delay.ms` | 60000 | 关闭段延迟删除时间（1 分钟） |
+
+> 💡 **与 RocketMQ 的对比**：RocketMQ 的 CommitLog 是单个大文件 + ConsumeQueue 索引；Kafka 的 Partition 是**多段小文件 + 稀疏索引**。两者都能做到高吞吐，但 Kafka 的段式设计让删除/压缩更灵活（直接删一个文件即可）。
+
+### 2.5 消费位点管理对比
+
+**RocketMQ 模式：**
+
+```mermaid
+sequenceDiagram
+    participant B as Broker
+    participant C as Consumer
+    
+    B->>C: 推送消息
+    C->>C: 业务处理
+    C->>B: 发送 ACK
+    Note over B: Broker 记录消费进度
+```
+
+**Kafka 模式：**
+
+```mermaid
+sequenceDiagram
+    participant B as __consumer_offsets
+    participant C as Consumer
+    
+    C->>B: poll() 拉取消息
+    B-->>C: 返回消息
+    C->>C: 业务处理
+    C->>B: commitSync() 提交 offset
+    Note over B: Consumer 自己管理
+```
+
+### 2.6 三种消息传递语义
+
+```mermaid
+flowchart LR
+    subgraph 语义
+        A["至少一次"]
+        B["至多一次"]
+        C["精确一次"]
+    end
+    
+    A --- |"手动ACK"| A1["可能重复"]
+    B --- |"自动提交"| B1["可能丢失"]
+    C --- |"幂等+事务"| C1["恰好一次"]
+```
+
+| 语义 | 定义 | 实现方式 | 风险 |
+|------|------|---------|------|
+| **至少一次** | 消息绝不会丢失，但可能重复消费 | `enable.auto.commit=false` + 手动 `ack.acknowledge()` | 重复消费（需业务方做幂等） |
+| **至多一次** | 可能丢失消息，但绝不会重复消费 | `enable.auto.commit=true` + 自动提交 | 消息丢失 |
+| **精确一次** | 消息恰好被处理一次 | 幂等 Producer + 事务 Producer + 手动提交 | 实现复杂，Kafka Streams 专用 |
 
 ---
 
@@ -330,8 +537,8 @@ public class WaterDataConsumer {
 
     /**
      * 单条消费，手动提交 offset
-     * ⚠️ 注意：@KafkaListener 默认是并发的（多个线程同时消费）
-     *        如需保证顺序，设置 concurrency="1"
+     * 注意：@KafkaListener 默认是并发的（多个线程同时消费）
+     *       如需保证顺序，设置 concurrency="1"
      */
     @KafkaListener(topics = "campus-water", groupId = "campus-water-group")
     public void consume(ConsumerRecord<String, String> record, Acknowledgment ack) {
@@ -400,35 +607,6 @@ public class KafkaConfig {
 ## 五、重要机制详解
 
 ### 5.1 Offset 管理（⚠️ 与 RocketMQ 最大的差异）
-
-**两种消息系统的消费位点管理对比：**
-
-```
-RocketMQ 模式：
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Broker    │ ◄── │  Consumer    │ ──► │  业务处理    │
-│             │     │              │     │              │
-│  记录当前    │     │  发送 ack    │     │              │
-│  消费进度    │     │  请求下一条  │     │              │
-└──────────────┘     └──────────────┘     └──────────────┘
-     ▲
-     │ 主动推送
-     │
-消费者是被动的，Broker 记录所有消费进度
-
-Kafka 模式：
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  __consumer  │ ◄── │  Consumer    │ ──► │  业务处理    │
-│  _offsets    │     │              │     │              │
-│             │     │  自己提交     │     │              │
-│  存储各组的   │     │  offset      │     │              │
-│  消费进度    │     │              │     │              │
-└──────────────┘     └──────────────┘     └──────────────┘
-                      ▲
-                      │ 主动拉取（poll）
-                      │
-消费者主动拉取消息，自己管理 offset 进度
-```
 
 **三种消息传递语义：**
 
@@ -546,10 +724,10 @@ kafka-consumer-groups.sh \
   --group campus-water-group
 
 # 输出示例：
-# GROUP               TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG     OWNER
-# campus-water-group  campus-water   0          100             150             50      consumer-1
-# campus-water-group  campus-water   1          80              80             0      consumer-2
-# campus-water-group  campus-water   2          120            120             0      consumer-3
+# GROUP               TOPIC          PARTITION  CURRENT-OFFSET  LOG-END-OFFSET  LAG
+# campus-water-group  campus-water   0          100             150             50
+# campus-water-group  campus-water   1          80              80             0
+# campus-water-group  campus-water   2          120            120             0
 
 # 字段解释：
 # CURRENT-OFFSET: 当前已消费到的位置
@@ -588,8 +766,7 @@ kafka-consumer-groups.sh \
 # 查看 Topic 的 Partition 数
 kafka-topics.sh --describe --topic campus-water --bootstrap-server localhost:9092
 
-# 如果消费者数 > Partition 数，多余消费者空闲
-# 解决方案：创建 Topic 时预估足够的 Partition 数
+# 解决方案：增加 Partition 数量
 kafka-topics.sh --alter --topic campus-water --partitions 10 --bootstrap-server localhost:9092
 ```
 
@@ -601,11 +778,11 @@ kafka-topics.sh --alter --topic campus-water --partitions 10 --bootstrap-server 
 | `latest` | 只消费新消息 | 生产环境、只关心新消息 |
 
 ```yaml
-# 典型错误：生产环境用了 earliest，每次重启都重复消费历史消息
+# 生产环境应该用 latest
 spring:
   kafka:
     consumer:
-      auto-offset-reset: latest  # 生产环境应该用这个
+      auto-offset-reset: latest
 ```
 
 ### 坑 3：消息体过大
@@ -614,49 +791,38 @@ spring:
 spring:
   kafka:
     producer:
-      # 单条消息最大字节数（默认 1MB）
       max-request-size: 10485760   # 10MB
     consumer:
-      # 单次 poll 最大字节数（默认 1MB）
       max-poll-records: 10485760   # 10MB
 ```
 
 ### 坑 4：Rebalance 风暴
 
-**原因**：Consumer 处理消息时间过长，超过 `max.poll.interval.ms`，触发 Rebalance
+**原因**：Consumer 处理消息时间过长，超过 `max.poll.interval.ms`
 
 ```yaml
 spring:
   kafka:
     consumer:
-      # 两次 poll 之间的最大间隔（默认 5 分钟）
-      # 处理逻辑耗时 > 此值会触发 Rebalance
-      max-poll-interval-ms: 300000
-      
-      # 每次 poll 的最大消息数（默认 500）
-      # 减少此值可以缩短处理时间
-      max-poll-records: 100
+      max-poll-interval-ms: 300000  # 调大
+      max-poll-records: 100          # 减少每次拉取数量
 ```
 
 ### 坑 5：在 @KafkaListener 中做耗时操作
 
 ```java
-// ❌ 错误：阻塞主线程，导致 Rebalance
+// ❌ 错误：阻塞主线程
 @KafkaListener(topics = "campus-water")
 public void consume(ConsumerRecord<String, String> record) {
-    // 同步调用外部服务（耗时 5 秒）
-    callExternalService(record.value());  // 阻塞 5 秒
+    callExternalService(record.value());  // 耗时操作
     ack.acknowledge();
 }
 
-// ✅ 正确：异步处理，主线程快速返回
+// ✅ 正确：异步处理
 @KafkaListener(topics = "campus-water")
 public void consume(ConsumerRecord<String, String> record) {
-    // 异步提交到线程池处理
-    CompletableFuture.runAsync(() -> {
-        callExternalService(record.value());
-    });
-    ack.acknowledge();  // 立即 ack
+    CompletableFuture.runAsync(() -> callExternalService(record.value()));
+    ack.acknowledge();
 }
 ```
 
@@ -673,14 +839,11 @@ public class ProducerDemo {
         props.put("bootstrap.servers", "localhost:9092");
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        
-        // 开启幂等性（精确一次语义的前提）
         props.put("enable.idempotence", true);
         props.put("acks", "all");
 
         KafkaProducer<String, String> producer = new KafkaProducer<>(props);
         
-        // 发送消息（key 相同则路由到同一 Partition）
         ProducerRecord<String, String> record = 
             new ProducerRecord<>("campus-water", "device-001", "{\"flow\":1.5}");
         
@@ -688,12 +851,10 @@ public class ProducerDemo {
             if (exception == null) {
                 System.out.printf("发送成功: topic=%s, partition=%d, offset=%d%n",
                     metadata.topic(), metadata.partition(), metadata.offset());
-            } else {
-                exception.printStackTrace();
             }
         });
         
-        producer.close();  // 关闭前确保所有消息发送完成
+        producer.close();
     }
 }
 ```
@@ -705,27 +866,21 @@ public class ConsumerDemo {
     public static void main(String[] args) {
         Properties props = new Properties();
         props.put("bootstrap.servers", "localhost:9092");
-        props.put("group.id", "test-group");           // 消费者组 ID
+        props.put("group.id", "test-group");
         props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
         props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
-        props.put("auto.offset.reset", "earliest");    // 新消费者组从头消费
-        props.put("enable.auto.commit", false);        // 手动提交 offset
+        props.put("auto.offset.reset", "earliest");
+        props.put("enable.auto.commit", false);
 
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(props);
-        
-        // 订阅 Topic（支持正则匹配多个 Topic）
         consumer.subscribe(Collections.singletonList("campus-water"));
 
         while (true) {
-            // poll: 拉取消息，参数为超时时间
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-            
             for (ConsumerRecord<String, String> record : records) {
                 System.out.printf("partition=%d, offset=%d, key=%s, value=%s%n",
                     record.partition(), record.offset(), record.key(), record.value());
             }
-            
-            // 手动提交 offset（确保消息处理完成后提交）
             consumer.commitSync();
         }
     }
@@ -739,17 +894,31 @@ public class ConsumerDemo {
 | 术语 | 解释 |
 |------|------|
 | **Broker** | Kafka 集群中的单个节点，负责存储消息 |
-| **Topic** | 消息的逻辑分类容器，类似 RocketMQ 的 Topic |
+| **Topic** | 消息的逻辑分类容器 |
 | **Partition** | Topic 的物理分区，每个 Partition 是一个有序的日志文件 |
 | **Segment** | Partition 内部的分段文件，包含 .log（数据）和 .index（索引） |
-| **Offset** | 消息在 Partition 中的物理位置（从 0 开始的递增序号） |
+| **Offset** | 消息在 Partition 中的物理位置 |
 | **Consumer Group** | 消费者组，同组消费者共享订阅的 Topic，组内负载均衡 |
-| **Leader/Follower** | Leader 负责读写请求，Follower 同步数据（ISR 列表） |
+| **Leader/Follower** | Leader 负责读写请求，Follower 同步数据 |
 | **ISR** | In-Sync Replicas，同步中的副本集合 |
 | **Lag** | 消费滞后量 = LOG-END-OFFSET - CURRENT-OFFSET |
-| **Rebalance** | 消费者组内分区所有权重新分配的过程（触发时消费者会短暂不可用） |
-| **KRaft** | Kafka 内置的 Raft 协议实现，替代 ZooKeeper 进行元数据管理 |
+| **Rebalance** | 消费者组内分区所有权重新分配的过程 |
+| **KRaft** | Kafka 内置的 Raft 协议实现 |
 | **__consumer_offsets** | Kafka 内置 Topic，存储各消费者组的消费进度 |
+
+---
+
+## 十、Mermaid 图表渲染说明
+
+本文档使用 **Mermaid** 语法绘制架构图，以下环境可正常渲染：
+
+| 环境 | 渲染方式 |
+|------|---------|
+| **VS Code** | 安装 **Mermaid Markdown Syntax Highlighting** 或 **Markdown Preview Mermaid Support** 插件 |
+| **GitHub** | 原生支持 |
+| **GitLab** | 原生支持 |
+| **飞书** | 原生支持 |
+| **Typora** | 开启「视图 → 渲染内容」 |
 
 ---
 
