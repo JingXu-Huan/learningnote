@@ -17,7 +17,7 @@
 </dependency>
 <!--负载均衡-->
 <dependency>
-groupId>org.springframework.cloud</groupId>
+<groupId>org.springframework.cloud</groupId>
 <artifactId>spring-cloud-starter-loadbalancer</artifactId>
 </dependency>
 ```
