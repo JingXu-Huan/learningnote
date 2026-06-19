@@ -215,3 +215,12 @@ DaoAuthenticationProvider 调用 UserDetailsService.loadUserByUsername("Tom")
 ```
 
 > **关键理解**：Spring Security 帮你做了"查用户 + 比对密码"这两步，你只需要提供 `UserDetailsService` 和 `PasswordEncoder`。
+
+---
+
+## 🔗 相关笔记
+
+- [[JWT详解]] —— JWT 详解（Token 结构、签名、刷新）
+- [[JWT集成SpringSecurity]] —— JWT + Spring Security 完整集成
+- [[../../../计算机网络/计算机网络知识总结]] —— HTTP 认证机制、HTTPS/TLS 基础
+- [[../../../实习方法论/SpringBoot/SPEL表达式]] —— @PreAuthorize 中使用的 SpEL 表达式

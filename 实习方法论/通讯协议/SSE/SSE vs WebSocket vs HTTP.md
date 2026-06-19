@@ -189,3 +189,11 @@ flowchart TB
 ## 八、一句话总结
 
 > **HTTP** 适合一问一答的查询，**SSE** 适合单向实时推送（通知、监控），**WebSocket** 适合双向实时交互（聊天、游戏），**MQTT** 适合 IoT 和发布订阅场景。四者不是互斥的，实际项目常组合使用。
+
+---
+
+## 🔗 相关笔记
+
+- [[../WebSocket/WebSocket vs HTTP/什么是WebSocket]] —— WebSocket 协议深入（帧结构、握手、心跳）
+- [[../../../计算机网络/计算机网络知识总结]] —— HTTP / TCP / WebSocket 底层协议详解
+- [[../../SpringBoot/SPEL表达式]] —— SSE 推送中可能用到的 SpEL 表达式

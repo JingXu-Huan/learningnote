@@ -367,3 +367,12 @@ curl http://localhost:8080/admin/users \
 # 返回 403
 {"code":403,"msg":"权限不足"}
 ```
+
+---
+
+## 🔗 相关笔记
+
+- [[JWT详解]] —— JWT 结构、签名、密钥管理详解
+- [[SpringSecurity概述]] —— Spring Security 过滤器链与 UserDetailsService
+- [[../SpringBoot/AOP]] —— JWT 过滤器本质上是 AOP 的另一种体现
+- [[../../../实习方法论/SpringBoot/SPEL表达式]] —— @PreAuthorize 中使用的 SpEL 表达式

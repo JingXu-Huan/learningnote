@@ -536,3 +536,5 @@ mindmap
 
 - [[线程池七大核心参数]] —— 异步任务运行的载体
 - [[../README]] —— 多线程总览
+- [[../../Java/lambda表达式]] —— CompletableFuture 的回调大量使用 Lambda
+- [[../../Java/四种特殊的接口]] —— Supplier / Function / Consumer 接口在 thenApply / thenAccept 中的应用

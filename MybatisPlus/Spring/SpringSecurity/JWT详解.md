@@ -302,3 +302,11 @@ axios.interceptors.request.use(config => {
     return config;
 });
 ```
+
+---
+
+## 🔗 相关笔记
+
+- [[SpringSecurity概述]] —— Spring Security 过滤器链与认证流程
+- [[JWT集成SpringSecurity]] —— JWT + Spring Security 完整集成方案
+- [[../../../计算机网络/计算机网络知识总结]] —— HTTP 无状态性、HTTPS/TLS 加密基础

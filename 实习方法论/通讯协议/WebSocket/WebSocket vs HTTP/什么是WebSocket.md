@@ -160,3 +160,10 @@ WebSocket 是长连接，如果中间链路断开（如 NAT 超时、交换机�
 ## 七、一句话总结
 
 > WebSocket 是一个基于 TCP 的全双工协议，通过 HTTP Upgrade 建立连接，用帧（Frame）而非请求-响应的方式传输数据，支持服务端主动推送，常用于实时聊天、游戏、监控推送等场景。
+
+---
+
+## 🔗 相关笔记
+
+- [[../../SSE/SSE vs WebSocket vs HTTP]] —— SSE / WebSocket / HTTP 三者对比与选型
+- [[../../../../计算机网络/计算机网络知识总结]] —— TCP / HTTP / WebSocket 底层协议详解

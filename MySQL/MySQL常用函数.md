@@ -270,4 +270,10 @@ SUM(salary) OVER (PARTITION BY dept ORDER BY id
 
 > **分组用 `PARTITION BY`，排序用 `ORDER BY`，要聚合但保留行就用窗口函数。** 排名三剑客：`ROW_NUMBER`（连续）/ `RANK`（跳号）/ `DENSE_RANK`（不跳号），上下行比对用 `LAG` / `LEAD`。
 
-------
+---
+
+## 🔗 相关笔记
+
+- [[窗口函数]] —— 窗口函数详解（RANK / LAG / LEAD / PARTITION BY）
+- [[SQL知识]] —— SQL 基础语法与流程控制函数（IF / CASE）
+- [[多表查询]] —— 聚合函数常配合 JOIN 使用

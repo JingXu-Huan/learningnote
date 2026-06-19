@@ -49,3 +49,11 @@ map.get(key).add(s);
 - `mappingFunction` 返回 `null` 时，不会放值进 map。
 - 不要在 `mappingFunction` 内对同一 `map` 进行修改（可能引发不可预测的行为或死循环）。
 - 若在高并发场景使用，请选用 `ConcurrentHashMap` 并理解其并发语义。
+
+---
+
+## 🔗 相关笔记
+
+- [[源码的分析/总结源码😘😘🎉]] —— HashMap 源码分析（扩容、红黑树转换）
+- [[lambda表达式]] —— computeIfAbsent 的第二个参数就是 Function 接口的 Lambda
+- [[../面经/美团校招Java后端一面]] —— 面试中 ConcurrentHashMap 相关考点

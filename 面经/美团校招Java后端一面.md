@@ -63,3 +63,13 @@ Volatile只能保证可见性，不能保证原子性
 作者：RaidMaster6
 链接：https://www.nowcoder.com/feed/main/detail/26c5cf553a584f6490603c6a0d779561?sourceSSR=search
 来源：牛客网
+
+---
+
+## 🔗 相关笔记
+
+- [[../MybatisPlus/Spring/SpringBoot/AOP]] —— AOP 相关面试题
+- [[../Java/哈希表的那些逆天api]] —— ConcurrentHashMap 面试题
+- [[../微服务/消息队列/kafka-quickstart]] —— RocketMQ / Kafka 消息队列
+- [[../多线程/线程池七大核心参数]] —— 线程池与并发编程
+- [[../MySQL/MySQL索引/索引和索引下推]] —— 数据库索引优化

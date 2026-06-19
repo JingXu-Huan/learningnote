@@ -923,3 +923,12 @@ public class ConsumerDemo {
 ---
 
 > **下一步推荐**：学习 Kafka Streams 或与 Flink 集成，实现实时流计算。
+
+---
+
+## 🔗 相关笔记
+
+- [[../../Redis/Redisson/阻塞队列]] —— 基于 Redisson RReliableQueue 的轻量级消息队列
+- [[../多个微服务之间如何相互调用/OpenFeign]] —— 同步远程调用（与 Kafka 异步调用的对比）
+- [[../../实习方法论/通讯协议/SSE/SSE vs WebSocket vs HTTP]] —— 通讯协议对比（HTTP 轮询 vs 消息推送 vs MQ）
+- [[../../多线程/API/CompletableFuture]] —— 异步消费 Kafka 消息时常用 CompletableFuture

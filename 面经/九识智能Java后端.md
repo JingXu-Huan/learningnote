@@ -50,3 +50,13 @@
 作者：让我再面会儿吧
 链接：https://www.nowcoder.com/discuss/812375696822521856?sourceSSR=search
 来源：牛客网
+
+---
+
+## 🔗 相关笔记
+
+- [[../Redis/数据结构]] —— Redis 数据结构与应用
+- [[../MySQL/SQL知识]] —— MySQL SQL 知识
+- [[../MybatisPlus/Spring/SpringBoot/AOP]] —— Spring AOP
+- [[../多线程/线程池七大核心参数]] —— 线程池核心参数
+- [[如何解决缓存和数据库的数据不一致性]] —— 缓存一致性方案

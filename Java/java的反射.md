@@ -69,7 +69,13 @@
     field.setAccessible(true);
     ```
 
-    
+---
+
+## 🔗 相关笔记
+
+- [[../MybatisPlus/Spring/SpringBoot/AOP]] —— AOP 底层大量使用反射（获取注解、方法、代理）
+- [[../MybatisPlus/Spring/SpringBoot/常用注解]] —— 注解的读取和处理都依赖反射 API
+- [[语法糖]] —— Lambda 与反射都是 Java 的高级特性
 
   
 

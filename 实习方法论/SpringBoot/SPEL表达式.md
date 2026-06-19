@@ -292,4 +292,12 @@ T(java.util.UUID).randomUUID().toString()
 它们之所以能这样写，是因为 Spring 在这些注解的实现里，专门把注解属性当表达式解析了。
 SpEL 常用语法就是：`#参数`、`@Bean`、`#result`、`T(类名)`、逻辑/比较/三元运算。
 
-如果你愿意，我可以下一步直接给你整理一版“SpEL 语法速查表.md”。
+如果你愿意，我可以下一步直接给你整理一版”SpEL 语法速查表.md”。
+
+---
+
+## 🔗 相关笔记
+
+- [[../../MybatisPlus/Spring/SpringSecurity/SpringSecurity概述]] —— @PreAuthorize 中使用的 SpEL 表达式
+- [[../../MybatisPlus/Spring/SpringSecurity/JWT集成SpringSecurity]] —— JWT + Spring Security 中的权限表达式
+- [[../../MybatisPlus/Spring/SpringBoot/AOP]] —— SpEL 与 AOP 注解的配合使用

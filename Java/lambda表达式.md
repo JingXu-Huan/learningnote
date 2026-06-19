@@ -13,3 +13,12 @@ Lambda 表达式是 Java 8 引入的一种语法糖，用来简化**只有一个
 - **参数列表**：可以省略类型（编译器会自动推断）。
 - **->**：读作 “goes to” 或 “箭头符号”。
 - **方法体**：一行语句时可以省略 `{}` 和 `return`。
+
+---
+
+## 🔗 相关笔记
+
+- [[语法糖]] —— Lambda 本质上就是函数式接口的语法糖
+- [[四种特殊的接口]] —— Supplier / Consumer / Function / Predicate 四大函数式接口
+- [[StreamApi]] —— Stream API 大量使用 Lambda 表达式
+- [[../多线程/API/CompletableFuture]] —— 异步编程中的 Lambda 用法

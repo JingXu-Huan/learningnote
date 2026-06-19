@@ -149,3 +149,12 @@ public class LogGatewayFilterFactory extends AbstractGatewayFilterFactory<LogGat
 
 ### 大多时候我们只需要按照默认的即可
 
+---
+
+## 🔗 相关笔记
+
+- [[../配置中心/nacos配置中心]] —— Nacos 配置中心（共享配置、热更新）
+- [[../多个微服务之间如何相互调用/OpenFeign]] —— 微服务之间的远程调用
+- [[../分布式日志/在你的微服务项目中引入分布式日志技术]] —— 微服务分布式日志收集（Filebeat + ELK）
+- [[../../MybatisPlus/Spring/SpringSecurity/JWT集成SpringSecurity]] —— 网关层面的 JWT 鉴权
+
