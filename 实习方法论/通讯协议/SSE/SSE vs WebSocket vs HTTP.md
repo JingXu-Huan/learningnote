@@ -197,3 +197,4 @@ flowchart TB
 - [[../WebSocket/WebSocket vs HTTP/什么是WebSocket]] —— WebSocket 协议深入（帧结构、握手、心跳）
 - [[../../../计算机网络/计算机网络知识总结]] —— HTTP / TCP / WebSocket 底层协议详解
 - [[../../SpringBoot/SPEL表达式]] —— SSE 推送中可能用到的 SpEL 表达式
+- [[./MCP 里的 SSE]] —— MCP 里 SSE 的角色、旧版 HTTP+SSE 和新版 Streamable HTTP
