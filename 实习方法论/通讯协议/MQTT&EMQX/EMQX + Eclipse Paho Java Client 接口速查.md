@@ -10,6 +10,16 @@
 - 需要区分同步 / 异步客户端
 - 需要快速查 EMQX 5.x 管理 API
 
+```mermaid
+flowchart TD
+  A[Java 应用] --> B[MqttClient / MqttAsyncClient]
+  B --> C[EMQX Broker]
+  C --> D[主题订阅与消息分发]
+  C --> E[Broker 管理 API]
+  D --> F[业务系统消费消息]
+  E --> G[运维 / 排障 / 统计]
+```
+
 ------
 
 ## 二、Maven 依赖
@@ -103,6 +113,14 @@ mqtt:
 
 > 如果你关心自动重连后的状态，优先用 `MqttCallbackExtended`。
 
+```mermaid
+flowchart LR
+  A[同步需求] --> B[MqttClient]
+  C[非阻塞 / 回调需求] --> D[MqttAsyncClient]
+  B --> E[简单脚本 / 后台任务]
+  D --> F[UI / 事件驱动 / 长耗时任务]
+```
+
 ------
 
 ## 五、核心连接参数
@@ -130,6 +148,21 @@ mqtt:
 - `cleanSession = false`：适合需要持久会话和可靠投递的场景
 - `setAutomaticReconnect(true)`：断线后自动尝试重连
 - 连接建立后，通常先注册回调，再执行订阅
+
+```mermaid
+sequenceDiagram
+  participant App as Java 应用
+  participant Client as Paho Client
+  participant EMQX as EMQX Broker
+
+  App->>Client: new MqttClient / MqttAsyncClient
+  App->>Client: setCallback(...) / 配置 MqttConnectOptions
+  Client->>EMQX: connect()
+  EMQX-->>Client: 连接成功
+  Client->>EMQX: subscribe(topicFilter)
+  Client->>EMQX: publish(topic, payload)
+  EMQX-->>Client: messageArrived / deliveryComplete
+```
 
 ------
 
@@ -175,6 +208,15 @@ mqtt:
 
 - topic filter 支持通配符
 - 订阅 QoS 是上限，不是强制值
+
+```mermaid
+flowchart TD
+  A[发布消息 publish] --> B[EMQX 按 topic 匹配订阅]
+  B --> C{是否有匹配订阅?}
+  C -->|是| D[按订阅 QoS 分发]
+  C -->|否| E[丢弃 / 仅保留消息]
+  D --> F[客户端回调 messageArrived]
+```
 
 ### 6.4 取消订阅
 
@@ -248,6 +290,14 @@ public class Demo {
 ## 八、EMQX Broker 管理 API
 
 EMQX 5.x 管理面常用前缀是 `/api/v5`，一般通过 API Key 的 Basic Auth 调用。
+
+```mermaid
+flowchart LR
+  A[开发 / 运维人员] --> B[HTTP 请求]
+  B --> C[EMQX API /api/v5]
+  C --> D[节点 / 客户端 / 订阅 / 发布]
+  D --> E[排障、统计、强制断开、消息下发]
+```
 
 ### 8.1 常用接口速查
 
