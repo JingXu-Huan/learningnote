@@ -141,27 +141,33 @@ python --version
 
 ### 2. 建议的虚拟环境
 
+更推荐直接用 **Miniconda**，因为：
+
+- 新手管理 Python 版本更省心
+- 包隔离更直观
+- 后面切换不同实验环境更方便
+
 ```bash
-mkdir langchain-week
-cd langchain-week
-python -m venv .venv
+conda create -n langchain-week python=3.11 -y
+conda activate langchain-week
 ```
 
 Windows:
 
 ```powershell
-.venv\Scripts\activate
+conda activate langchain-week
 ```
 
 macOS / Linux:
 
 ```bash
-source .venv/bin/activate
+conda activate langchain-week
 ```
 
 ### 3. 这一周最小依赖
 
 ```bash
+conda install pip -y
 pip install -U langchain langchain-openai langgraph langsmith
 ```
 

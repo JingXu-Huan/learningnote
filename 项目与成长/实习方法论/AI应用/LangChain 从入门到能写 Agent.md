@@ -111,22 +111,23 @@ LangChain 官方安装页给出的要求是：
 
 ### 2. 虚拟环境
 
+更建议直接用 **Miniconda**，这样你后面切换 Python 版本和实验环境会更顺。
+
 ```bash
-mkdir langchain-demo
-cd langchain-demo
-python -m venv .venv
+conda create -n langchain-demo python=3.11 -y
+conda activate langchain-demo
 ```
 
 Windows:
 
 ```powershell
-.venv\Scripts\activate
+conda activate langchain-demo
 ```
 
 macOS / Linux:
 
 ```bash
-source .venv/bin/activate
+conda activate langchain-demo
 ```
 
 ### 3. 安装依赖
@@ -134,6 +135,7 @@ source .venv/bin/activate
 最小安装：
 
 ```bash
+conda install pip -y
 pip install -U langchain langchain-openai
 ```
 
