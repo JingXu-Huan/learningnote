@@ -19,8 +19,11 @@
 - [九、Checkpointer 和 Store 到底有什么区别](#九checkpointer-和-store-到底有什么区别)
 - [十、本地运行 LangGraph Server 的意义](#十本地运行-langgraph-server-的意义)
 - [十一、哪些场景更适合上 LangGraph](#十一哪些场景更适合上-langgraph)
-- [十二、最容易踩的坑](#十二最容易踩的坑)
-- [十三、学完这篇你应该掌握什么](#十三学完这篇你应该掌握什么)
+- [十二、练手项目 1：写一个最小状态图](#十二练手项目-1写一个最小状态图)
+- [十三、练手项目 2：加上条件分支和工具调用](#十三练手项目-2加上条件分支和工具调用)
+- [十四、练手项目 3：体验持久化思路](#十四练手项目-3体验持久化思路)
+- [十五、最容易踩的坑](#十五最容易踩的坑)
+- [十六、学完这篇你应该掌握什么](#十六学完这篇你应该掌握什么)
 
 ------
 
@@ -230,6 +233,40 @@ Edge 决定下一步往哪走。
 
 如果你连这个最小图都没写过，直接上复杂 agent，只会把自己绕晕。
 
+### 一个最小可运行骨架
+
+下面这个例子不追求花哨，只是帮你先体会 graph 的基本组成。
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class MyState(TypedDict):
+    question: str
+    answer: str
+
+def answer_node(state: MyState) -> MyState:
+    question = state["question"]
+    return {
+        **state,
+        "answer": f"你问的是：{question}。这是一个最小 LangGraph 返回。",
+    }
+
+graph_builder = StateGraph(MyState)
+graph_builder.add_node("answer_node", answer_node)
+graph_builder.add_edge(START, "answer_node")
+graph_builder.add_edge("answer_node", END)
+
+graph = graph_builder.compile()
+
+result = graph.invoke({"question": "什么是 LangGraph？", "answer": ""})
+print(result)
+```
+
+这个最小例子的目的只有一个：
+
+- 让你真正看到 `State + Node + Edge` 怎么拼起来
+
 ------
 
 ## 七、Thinking in LangGraph：真正要学的是拆流程的方式
@@ -287,6 +324,48 @@ Edge 决定下一步往哪走。
 - 故障恢复
 - 需要记忆的 Agent
 
+### 先用一个“状态会传递”的例子找感觉
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class StudyState(TypedDict):
+    topic: str
+    notes: str
+    final_answer: str
+
+def collect_notes(state: StudyState) -> StudyState:
+    topic = state["topic"]
+    return {
+        **state,
+        "notes": f"{topic} 的重点：先看核心概念，再整理高频题。",
+    }
+
+def generate_answer(state: StudyState) -> StudyState:
+    return {
+        **state,
+        "final_answer": f"学习建议：{state['notes']}",
+    }
+
+builder = StateGraph(StudyState)
+builder.add_node("collect_notes", collect_notes)
+builder.add_node("generate_answer", generate_answer)
+builder.add_edge(START, "collect_notes")
+builder.add_edge("collect_notes", "generate_answer")
+builder.add_edge("generate_answer", END)
+
+graph = builder.compile()
+result = graph.invoke(
+    {"topic": "LangGraph", "notes": "", "final_answer": ""}
+)
+print(result)
+```
+
+这个例子虽然还没真的持久化，但它能帮助你先看到：
+
+- 一个节点产生的状态，后一个节点可以继续用
+
 ------
 
 ## 九、Checkpointer 和 Store 到底有什么区别
@@ -332,6 +411,18 @@ Edge 决定下一步往哪走。
 
 - `checkpointer`：更像“流程存档”
 - `store`：更像“长期资料库”
+
+### 练手思路
+
+做两个实验：
+
+1. 把“当前这次对话已经走到哪一步”放进流程状态里
+2. 把“用户长期偏好 Java / Redis / 分布式”放进单独数据结构里
+
+这样你会更容易体会：
+
+- 什么是短期流程状态
+- 什么是长期业务信息
 
 ------
 
@@ -413,7 +504,182 @@ Edge 决定下一步往哪走。
 
 ------
 
-## 十二、最容易踩的坑
+## 十二、练手项目 1：写一个最小状态图
+
+### 目标
+
+写一个只有 2 个节点的图：
+
+1. 接收问题
+2. 生成简短回答
+
+### 参考代码
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class QAState(TypedDict):
+    question: str
+    answer: str
+
+def prepare_question(state: QAState) -> QAState:
+    return {
+        **state,
+        "question": state["question"].strip(),
+    }
+
+def answer_question(state: QAState) -> QAState:
+    return {
+        **state,
+        "answer": f"这是针对问题“{state['question']}”的最小回答。",
+    }
+
+builder = StateGraph(QAState)
+builder.add_node("prepare_question", prepare_question)
+builder.add_node("answer_question", answer_question)
+builder.add_edge(START, "prepare_question")
+builder.add_edge("prepare_question", "answer_question")
+builder.add_edge("answer_question", END)
+
+graph = builder.compile()
+print(graph.invoke({"question": " 什么是状态图？ ", "answer": ""}))
+```
+
+### 练手要求
+
+- 把 `answer_question` 改成调用真实 LLM
+- 增加一个 `summary` 字段
+- 看看最终 state 会不会包含所有中间结果
+
+------
+
+## 十三、练手项目 2：加上条件分支和工具调用
+
+这是 LangGraph 真正开始有意思的地方。
+
+### 目标
+
+让 graph 先判断：
+
+- 如果用户问题里包含 `Redis` 或 `MySQL`，就去查笔记工具
+- 否则直接回答
+
+### 参考代码
+
+```python
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+
+class AgentState(TypedDict):
+    question: str
+    route: str
+    notes: str
+    answer: str
+
+def router(state: AgentState) -> AgentState:
+    question = state["question"].lower()
+    if "redis" in question or "mysql" in question:
+        return {**state, "route": "search"}
+    return {**state, "route": "direct"}
+
+def search_notes(state: AgentState) -> AgentState:
+    q = state["question"].lower()
+    if "redis" in q:
+        notes = "Redis：先看数据类型、持久化、缓存问题。"
+    elif "mysql" in q:
+        notes = "MySQL：先看索引、事务、锁、MVCC。"
+    else:
+        notes = "暂无匹配笔记。"
+    return {**state, "notes": notes}
+
+def direct_answer(state: AgentState) -> AgentState:
+    return {**state, "answer": f"直接回答：{state['question']}"}
+
+def answer_with_notes(state: AgentState) -> AgentState:
+    return {
+        **state,
+        "answer": f"结合笔记给出回答：{state['notes']}",
+    }
+
+def route_next(state: AgentState) -> str:
+    return state["route"]
+
+builder = StateGraph(AgentState)
+builder.add_node("router", router)
+builder.add_node("search_notes", search_notes)
+builder.add_node("direct_answer", direct_answer)
+builder.add_node("answer_with_notes", answer_with_notes)
+
+builder.add_edge(START, "router")
+builder.add_conditional_edges(
+    "router",
+    route_next,
+    {
+        "search": "search_notes",
+        "direct": "direct_answer",
+    },
+)
+builder.add_edge("search_notes", "answer_with_notes")
+builder.add_edge("direct_answer", END)
+builder.add_edge("answer_with_notes", END)
+
+graph = builder.compile()
+
+print(graph.invoke({"question": "帮我复习 Redis", "route": "", "notes": "", "answer": ""}))
+print(graph.invoke({"question": "什么是 LangGraph", "route": "", "notes": "", "answer": ""}))
+```
+
+### 这里你要重点体会
+
+- `router` 节点并不直接回答问题，它只是决定流程往哪走
+- `conditional_edges` 是图编排的关键能力
+
+------
+
+## 十四、练手项目 3：体验持久化思路
+
+这里先不强求你一次搞懂所有后端存储细节，但至少要先用“线程状态”的思路练手。
+
+### 目标
+
+模拟两轮对话：
+
+1. 第一轮记录用户想学什么
+2. 第二轮基于上一轮主题继续回答
+
+### 参考代码
+
+```python
+thread_state = {
+    "topic": None,
+    "history": [],
+}
+
+def first_turn(user_input: str):
+    thread_state["topic"] = user_input
+    thread_state["history"].append(user_input)
+    return f"已记录当前学习主题：{user_input}"
+
+def second_turn(user_input: str):
+    thread_state["history"].append(user_input)
+    topic = thread_state["topic"]
+    return f"继续围绕 {topic} 回答。你刚才又问了：{user_input}"
+
+print(first_turn("Redis"))
+print(second_turn("继续给我 5 个高频问题"))
+print(thread_state)
+```
+
+这个例子还不是 LangGraph 官方 persistence API 的完整写法，但它很适合作为过渡理解：
+
+- 为什么要有 thread
+- 为什么要存状态
+- 为什么中断后恢复需要“之前已经保存的上下文”
+
+------
+
+## 十五、最容易踩的坑
 
 ### 1. 没学会 LangChain 就硬上 LangGraph
 
@@ -437,7 +703,7 @@ Edge 决定下一步往哪走。
 
 ------
 
-## 十三、学完这篇你应该掌握什么
+## 十六、学完这篇你应该掌握什么
 
 如果你把这篇内容吃透了，至少应该能做到：
 

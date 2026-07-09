@@ -17,9 +17,11 @@
 - [七、结构化输出：LangChain 最值得优先掌握的能力之一](#七结构化输出langchain-最值得优先掌握的能力之一)
 - [八、Memory 先建立概念，不要一上来就死磕实现](#八memory-先建立概念不要一上来就死磕实现)
 - [九、RAG 和 LangChain 的关系](#九rag-和-langchain-的关系)
-- [十、一个适合新手的学习顺序](#十一个适合新手的学习顺序)
-- [十一、最容易踩的坑](#十一最容易踩的坑)
-- [十二、学完这篇你应该能做到什么](#十二学完这篇你应该能做到什么)
+- [十、练手项目 1：做一个技术问题分类器](#十练手项目-1做一个技术问题分类器)
+- [十一、练手项目 2：做一个带工具的学习助手](#十一练手项目-2做一个带工具的学习助手)
+- [十二、一个适合新手的学习顺序](#十二一个适合新手的学习顺序)
+- [十三、最容易踩的坑](#十三最容易踩的坑)
+- [十四、学完这篇你应该能做到什么](#十四学完这篇你应该能做到什么)
 
 ------
 
@@ -179,6 +181,34 @@ print(result.content)
 - 包有没有装对
 - 虚拟环境有没有激活
 
+### 练手任务
+
+先不要急着进下一节，先把下面 3 个变体都敲一遍：
+
+```python
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+
+questions = [
+    "用一句话解释什么是 LangChain",
+    "用三点说明 LangChain 和直接调 OpenAI API 的区别",
+    "假设我是后端实习生，为什么要学 Agent 框架",
+]
+
+for q in questions:
+    result = llm.invoke(q)
+    print("=" * 40)
+    print("问题：", q)
+    print("回答：", result.content)
+```
+
+观察点：
+
+- 同一个模型，换不同问题，输出风格有什么变化
+- `temperature=0` 后，多次执行是否更稳定
+- `result` 除了 `content` 之外，还有没有别的信息
+
 ------
 
 ## 五、第二个脚本：写一个最小 Agent
@@ -221,6 +251,52 @@ print(result)
 #### 3. `messages`
 
 Agent 调用不再只是“传个字符串”，而是围绕消息来组织上下文。
+
+### 升级版练手：做 2 个工具
+
+只写一个天气函数还不够，你至少要体会一下模型在多个工具之间做选择。
+
+```python
+from langchain.agents import create_agent
+
+def get_weather(city: str) -> str:
+    """查询某个城市的天气"""
+    return f"{city}：晴天，28 度，适合出门。"
+
+def get_interview_tip(topic: str) -> str:
+    """根据主题返回一条面试复习建议"""
+    tips = {
+        "redis": "先复习数据类型、持久化、缓存穿透、缓存雪崩。",
+        "mysql": "先复习索引、事务、锁、MVCC、执行计划。",
+        "spring": "先复习 IOC、AOP、事务传播、自定义注解。",
+    }
+    return tips.get(topic.lower(), f"{topic}：建议先整理核心概念，再准备 5 个高频面试题。")
+
+agent = create_agent(
+    model="openai:gpt-4.1-mini",
+    tools=[get_weather, get_interview_tip],
+)
+
+questions = [
+    "帮我查一下郑州天气",
+    "我明天面试 Redis，给我一个复习建议",
+    "我准备 Spring 面试，给我一个简短建议",
+]
+
+for question in questions:
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": question}]}
+    )
+    print("=" * 60)
+    print(question)
+    print(result)
+```
+
+练手要求：
+
+- 把 `get_interview_tip` 改成你自己的方向，比如 Java、并发、MQ
+- 再加一个 `get_note_summary(topic: str)` 工具
+- 故意把某个工具说明写得很含糊，看模型会不会选错
 
 ------
 
@@ -303,6 +379,41 @@ print(result)
 - 再用 structured output
 - prompt 只是补充约束
 
+### 练手升级：做一个“学习任务拆解器”
+
+这个练习比单纯分类更像真实场景。
+
+```python
+from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+
+class StudyPlan(BaseModel):
+    topic: str = Field(description="学习主题")
+    current_level: str = Field(description="当前水平")
+    goals: list[str] = Field(description="学习目标列表")
+    first_action: str = Field(description="第一步该做什么")
+    need_code_practice: bool = Field(description="是否需要代码练习")
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+structured_llm = llm.with_structured_output(StudyPlan)
+
+prompt = """
+用户现在有一些 Python 基础。
+他希望在一周内学完 LangChain，LangSmith，LangGraph。
+请帮他拆成一个清晰的学习任务。
+"""
+
+result = structured_llm.invoke(prompt)
+print(result)
+print(result.model_dump())
+```
+
+继续练：
+
+- 把 `goals` 改成 `list[str]` 之外，再增加 `day_by_day_plan`
+- 增加 `risk_points`
+- 试试把输入换成 “我要准备 Redis 面试” 或 “我要做一个 RAG demo”
+
 ------
 
 ## 八、Memory 先建立概念，不要一上来就死磕实现
@@ -332,6 +443,36 @@ LangChain 里 memory 相关内容容易让新手一头雾水。
 
 你先能把这两个概念分清，就已经比很多只会调 API 的人强了。
 
+### 先做一个最小“多轮消息”实验
+
+虽然这里不展开完整 memory 实现，但你至少要体会“消息历史会影响回答”。
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+
+messages = [
+    SystemMessage(content="你是一个 Java 学习助手，回答尽量短。"),
+    HumanMessage(content="我正在准备 Redis 面试。"),
+]
+
+first = llm.invoke(messages)
+print("第一轮：", first.content)
+
+messages.append(AIMessage(content=first.content))
+messages.append(HumanMessage(content="继续刚才的话题，再给我 5 个高频问题。"))
+
+second = llm.invoke(messages)
+print("第二轮：", second.content)
+```
+
+这个练习的目标不是实现 memory，而是先建立感受：
+
+- 多轮上下文确实会影响回答
+- 只传最后一句，和带着历史消息传，结果会不同
+
 ------
 
 ## 九、RAG 和 LangChain 的关系
@@ -355,9 +496,150 @@ RAG 的核心思想是：
 
 LangChain 可以帮你组织这条链路，但它本身不等于 RAG。
 
+### 最小练手：假装做一个本地知识检索工具
+
+你现在不用急着接向量数据库，先用一个假的检索函数把流程跑通。
+
+```python
+from langchain.agents import create_agent
+
+NOTES = {
+    "redis": "Redis 常考：数据类型、持久化、主从复制、哨兵、分片集群。",
+    "mysql": "MySQL 常考：索引、事务、隔离级别、锁、MVCC、执行计划。",
+    "mq": "消息队列常考：削峰填谷、异步解耦、重复消费、顺序消息。",
+}
+
+def search_notes(topic: str) -> str:
+    """根据主题搜索学习笔记"""
+    return NOTES.get(topic.lower(), f"没有找到 {topic} 相关笔记。")
+
+agent = create_agent(
+    model="openai:gpt-4.1-mini",
+    tools=[search_notes],
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "帮我总结一下 Redis 面试最该先看什么"}]}
+)
+
+print(result)
+```
+
+你要理解的不是这个例子有多高级，而是：
+
+- “先检索，再回答” 这条链路已经出现了
+- 以后把假检索换成真检索，就是更完整的 RAG
+
 ------
 
-## 十、一个适合新手的学习顺序
+## 十、练手项目 1：做一个技术问题分类器
+
+这个项目很适合拿来练结构化输出。
+
+### 目标
+
+输入一段用户问题，输出：
+
+- 问题属于什么主题
+- 问题想干什么
+- 是否紧急
+
+### 参考代码
+
+```python
+from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+
+class QuestionTag(BaseModel):
+    topic: str = Field(description="主题，例如 redis、mysql、spring、java")
+    intent: str = Field(description="意图，例如 提问、总结、复习、改写")
+    urgency: str = Field(description="紧急程度，例如 低、中、高")
+    reason: str = Field(description="判断依据")
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+structured_llm = llm.with_structured_output(QuestionTag)
+
+samples = [
+    "我明天要面试 Redis，帮我快速梳理一下持久化",
+    "把这段 Spring Boot 接口文档改得正式一点",
+    "解释一下 MySQL 为什么会出现幻读",
+]
+
+for text in samples:
+    result = structured_llm.invoke(text)
+    print("=" * 50)
+    print(text)
+    print(result.model_dump())
+```
+
+### 练手要求
+
+- 自己补 10 条样本
+- 统计哪些主题最容易被分错
+- 尝试给字段加更清晰的 description，看效果会不会变稳
+
+------
+
+## 十一、练手项目 2：做一个带工具的学习助手
+
+这个项目更接近真实 Agent。
+
+### 目标
+
+用户提问后：
+
+1. 模型判断是否需要查“本地笔记工具”
+2. 如果需要，就调工具
+3. 最后给出简短回答
+
+### 参考代码
+
+```python
+from langchain.agents import create_agent
+
+NOTES = {
+    "redis": "Redis 先看：数据类型、持久化、缓存问题、主从复制。",
+    "mysql": "MySQL 先看：索引、事务、锁、MVCC、日志。",
+    "langchain": "LangChain 先看：model、tools、structured output、agents。",
+}
+
+def search_notes(topic: str) -> str:
+    """按主题搜索学习笔记摘要"""
+    return NOTES.get(topic.lower(), f"暂无 {topic} 相关摘要。")
+
+def generate_todo(topic: str) -> str:
+    """按主题生成一个三步学习任务"""
+    return f"1. 先看 {topic} 核心概念 2. 整理 5 个高频题 3. 写一个最小 demo"
+
+agent = create_agent(
+    model="openai:gpt-4.1-mini",
+    tools=[search_notes, generate_todo],
+)
+
+questions = [
+    "我想快速复习 Redis，先看什么",
+    "给我一个 LangChain 的三步学习计划",
+    "MySQL 面试前最后两小时该复习什么",
+]
+
+for q in questions:
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": q}]}
+    )
+    print("=" * 60)
+    print("问题：", q)
+    print("结果：", result)
+```
+
+### 继续升级
+
+- 给最终输出再套一层结构化 schema
+- 把工具返回值改成更长文本，观察模型会不会总结失真
+- 再接 LangSmith tracing，看它到底选了哪个工具
+
+------
+
+## 十二、一个适合新手的学习顺序
 
 下面这个顺序，比“顺着官网左侧导航乱点”更适合入门。
 
@@ -395,7 +677,7 @@ LangChain 可以帮你组织这条链路，但它本身不等于 RAG。
 
 ------
 
-## 十一、最容易踩的坑
+## 十三、最容易踩的坑
 
 ### 1. 上来就看一堆老教程
 
@@ -427,7 +709,7 @@ LangChain 可以帮你组织这条链路，但它本身不等于 RAG。
 
 ------
 
-## 十二、学完这篇你应该能做到什么
+## 十四、学完这篇你应该能做到什么
 
 如果这篇内容你吃透了，至少应该能做到：
 

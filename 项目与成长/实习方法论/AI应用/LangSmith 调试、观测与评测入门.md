@@ -19,8 +19,10 @@
 - [九、做一个最小 Evaluation 示例](#九做一个最小-evaluation-示例)
 - [十、Dataset 为什么要版本化](#十dataset-为什么要版本化)
 - [十一、Prompt Engineering 在 LangSmith 里怎么理解](#十一prompt-engineering-在-langsmith-里怎么理解)
-- [十二、最容易踩的坑](#十二最容易踩的坑)
-- [十三、学完这篇你应该掌握什么](#十三学完这篇你应该掌握什么)
+- [十二、练手项目 1：给 LangChain Agent 接上 Tracing](#十二练手项目-1给-langchain-agent-接上-tracing)
+- [十三、练手项目 2：跑一个最小评测实验](#十三练手项目-2跑一个最小评测实验)
+- [十四、最容易踩的坑](#十四最容易踩的坑)
+- [十五、学完这篇你应该掌握什么](#十五学完这篇你应该掌握什么)
 
 ------
 
@@ -162,6 +164,22 @@ $env:OPENAI_API_KEY="你的key"
 
 只要你能在 UI 里看见 trace，就已经迈过最重要的一步了。
 
+### 最小练手代码
+
+```python
+import os
+from langchain_openai import ChatOpenAI
+
+print("LANGSMITH_TRACING =", os.getenv("LANGSMITH_TRACING"))
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+result = llm.invoke("用两句话解释什么是 LangSmith")
+
+print(result.content)
+```
+
+先完成这一步，再去 LangSmith UI 里找这条 trace。
+
 ------
 
 ## 五、看 Trace 时到底应该看什么
@@ -230,6 +248,26 @@ Agent 调了工具，不代表就调对了。
 - 先看见链路
 
 不是一开始就研究所有 tracing API。
+
+### `@traceable` 最小例子
+
+```python
+from langsmith import traceable
+from langchain_openai import ChatOpenAI
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+
+@traceable(name="classify_question")
+def classify_question(text: str) -> str:
+    result = llm.invoke(f"判断这句话属于什么意图：{text}")
+    return result.content
+
+print(classify_question("帮我总结这段 Redis 笔记"))
+```
+
+这个例子的价值是：
+
+- 即使你不是完整 LangChain agent，也可以把关键函数打点出来
 
 ------
 
@@ -331,6 +369,57 @@ LLM 应用很容易掉进一个坑：
 - 改 prompt 之后是否真的提升
 - 哪些例子应该沉淀成长期测试集
 
+### 一个更像实战的最小代码骨架
+
+下面这个例子用结构化输出做“意图分类”，再用 evaluator 检查是否命中参考标签。
+
+```python
+from pydantic import BaseModel, Field
+from langchain_openai import ChatOpenAI
+
+class IntentResult(BaseModel):
+    intent: str = Field(description="意图，例如 总结、解释、改写")
+    reason: str = Field(description="判断依据")
+
+llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0)
+structured_llm = llm.with_structured_output(IntentResult)
+
+dataset = [
+    {"input": "帮我总结这段 Java 并发笔记", "expected_intent": "总结"},
+    {"input": "解释一下 Redis 为什么会出现缓存穿透", "expected_intent": "解释"},
+    {"input": "把这段接口文档改正式一点", "expected_intent": "改写"},
+]
+
+def target_function(text: str) -> dict:
+    result = structured_llm.invoke(text)
+    return result.model_dump()
+
+def evaluator(output: dict, expected_intent: str) -> bool:
+    return output["intent"] == expected_intent
+
+correct = 0
+
+for row in dataset:
+    output = target_function(row["input"])
+    ok = evaluator(output, row["expected_intent"])
+    correct += int(ok)
+    print("=" * 60)
+    print("输入：", row["input"])
+    print("输出：", output)
+    print("期望：", row["expected_intent"])
+    print("是否命中：", ok)
+
+print("准确条数：", correct)
+print("总条数：", len(dataset))
+print("准确率：", correct / len(dataset))
+```
+
+这段代码还不是 LangSmith 平台版 evaluation，但它能先帮你理解：
+
+- dataset 是什么
+- target function 是什么
+- evaluator 是什么
+
 ------
 
 ## 十、Dataset 为什么要版本化
@@ -377,9 +466,95 @@ LLM 应用很容易掉进一个坑：
 
 这个思路非常值得后端工程师学习。
 
+### 练手建议
+
+你可以准备两个 prompt 版本，分别跑同一组样本：
+
+```text
+版本 A：请判断用户问题的意图，只返回意图名称。
+版本 B：请判断用户问题的意图，意图只能是 总结 / 解释 / 改写 / 复习，并给出一句判断依据。
+```
+
+观察点：
+
+- 哪个版本更稳定
+- 哪个版本更容易命中你的 evaluator
+- 哪个版本更适合后续接结构化输出
+
 ------
 
-## 十二、最容易踩的坑
+## 十二、练手项目 1：给 LangChain Agent 接上 Tracing
+
+### 目标
+
+写一个最小 agent，然后在 LangSmith 里看完整链路。
+
+### 参考代码
+
+```python
+from langchain.agents import create_agent
+
+def search_notes(topic: str) -> str:
+    """搜索学习笔记"""
+    notes = {
+        "redis": "Redis 重点：数据类型、持久化、缓存穿透、主从复制。",
+        "mysql": "MySQL 重点：索引、事务、锁、MVCC。",
+    }
+    return notes.get(topic.lower(), f"没有找到 {topic} 相关笔记。")
+
+agent = create_agent(
+    model="openai:gpt-4.1-mini",
+    tools=[search_notes],
+)
+
+result = agent.invoke(
+    {"messages": [{"role": "user", "content": "帮我快速复习 Redis"}]}
+)
+
+print(result)
+```
+
+### 你在 LangSmith 里要重点看
+
+- 有没有调用 `search_notes`
+- 工具入参是不是 `redis`
+- 最终回答有没有利用工具结果
+
+------
+
+## 十三、练手项目 2：跑一个最小评测实验
+
+### 目标
+
+做一个最小“意图分类”评测。
+
+### 推荐步骤
+
+1. 先用前面的本地 `dataset + target_function + evaluator` 跑通
+2. 再把这批样本迁到 LangSmith dataset
+3. 再在平台上跑 experiment
+
+### 你至少要准备这些样本
+
+```python
+samples = [
+    {"input": "帮我总结 Redis 持久化", "expected": "总结"},
+    {"input": "解释一下 MySQL 幻读", "expected": "解释"},
+    {"input": "把这段文档改正式一点", "expected": "改写"},
+    {"input": "明天面试 RocketMQ，给我复习路线", "expected": "复习"},
+    {"input": "帮我压缩这段自我介绍", "expected": "改写"},
+]
+```
+
+### 继续升级
+
+- 增加容易混淆的样本
+- 增加错误样本分析
+- 比较两个 prompt 版本
+
+------
+
+## 十四、最容易踩的坑
 
 ### 1. 只看最终输出，不看链路
 
@@ -408,7 +583,7 @@ LLM 应用很容易掉进一个坑：
 
 ------
 
-## 十三、学完这篇你应该掌握什么
+## 十五、学完这篇你应该掌握什么
 
 如果你把这篇内容吃透了，至少应该能做到：
 
