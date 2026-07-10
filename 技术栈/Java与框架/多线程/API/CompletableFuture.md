@@ -16,6 +16,9 @@
 - [八、实战案例：电商下单](#八实战案例电商下单)
 - [九、注意事项与坑](#九注意事项与坑)
 - [十、最佳实践](#十最佳实践)
+- [十一、进阶技巧](#十一进阶技巧)
+- [十二、整体 API 关系图](#十二整体-api-关系图)
+- [十三、一句话总结](#十三一句话总结)
 
 ---
 
@@ -596,7 +599,7 @@ CompletableFuture<Result> future = CompletableFuture
 
 至少关注：活跃线程数、核心/最大线程数、队列长度、完成任务数、拒绝次数、任务等待时间、任务执行时间和超时数量。线程池名称应带有业务含义，方便在日志和监控中定位问题。
 
-### 9.5 最佳实践
+## 十、最佳实践
 
 1. **显式传入线程池**：只要任务涉及阻塞 I/O、业务隔离或明确的执行资源，就不要依赖 `commonPool`。
 2. **按任务类型隔离线程池**：I/O、CPU、数据库、外部接口和消息发送不要混用一个线程池，避免相互拖垮。
@@ -621,7 +624,121 @@ CompletableFuture<Result> future = CompletableFuture
 | 资源 | 线程池、连接和其他客户端是否能正确关闭？ |
 | 观测 | 是否能看到队列、拒绝、耗时和超时指标？ |
 
-### 9.6 整体 API 关系图
+## 十一、进阶技巧
+
+### 11.1 超时返回兜底值：`completeOnTimeout`
+
+`orTimeout` 超时后会以异常结束，`completeOnTimeout` 则会在超时后使用默认值完成任务，适合非核心数据的降级：
+
+```java
+CompletableFuture<Profile> profileF = CompletableFuture
+    .supplyAsync(() -> profileClient.get(userId), httpPool)
+    .completeOnTimeout(Profile.empty(), 300, TimeUnit.MILLISECONDS);
+```
+
+> `completeOnTimeout` 是 Java 9 引入的 API。默认值应明确表示“降级结果”，不要把真实业务数据和兜底数据混在一起。
+
+### 11.2 延迟执行与超时竞速：`delayedExecutor`
+
+`delayedExecutor` 可以让任务延迟提交到指定线程池，适合实现简单的延迟重试或超时竞争：
+
+```java
+Executor delayed = CompletableFuture.delayedExecutor(
+    200, TimeUnit.MILLISECONDS, retryPool);
+
+CompletableFuture<Result> retryF = CompletableFuture
+    .supplyAsync(() -> queryAgain(), delayed);
+```
+
+它只是延迟提交任务，不会自动取消原任务，也不是完整的重试框架。生产环境仍要补充重试次数、退避策略、幂等控制和异常分类。
+
+### 11.3 用 `applyToEither` 实现超时竞争
+
+可以让真实任务和超时任务进行竞争，先完成者决定结果：
+
+```java
+CompletableFuture<Data> timeoutF = new CompletableFuture<>();
+scheduler.schedule(
+    () -> timeoutF.complete(Data.timeout()),
+    500, TimeUnit.MILLISECONDS);
+
+CompletableFuture<Data> result = realF.applyToEither(
+    timeoutF, Function.identity());
+```
+
+这种方式可以自定义超时返回值，但注意：超时任务先完成并不代表 `realF` 已经停止，底层 HTTP/数据库调用仍需要自己的超时和取消机制。
+
+### 11.4 `failedFuture` 与 `failedStage`：快速构造失败结果
+
+在参数校验、缓存未命中或分支逻辑中，可以直接返回失败的异步结果：
+
+```java
+public CompletableFuture<User> findUser(Long userId) {
+    if (userId == null) {
+        return CompletableFuture.failedFuture(
+            new IllegalArgumentException("userId 不能为空"));
+    }
+    return CompletableFuture.supplyAsync(() -> queryUser(userId), dbPool);
+}
+```
+
+`failedFuture` 是 Java 9 引入的 API；Java 8 可以使用 `new CompletableFuture<>()` 配合 `completeExceptionally(ex)`。
+
+### 11.5 暴露只读阶段：`minimalCompletionStage` 与 `copy`
+
+如果组件内部需要保留 `complete()` 权限，但对外只想暴露“读取结果和继续编排”的能力，可以使用：
+
+```java
+private final CompletableFuture<Config> configF = loadConfig();
+
+public CompletionStage<Config> configStage() {
+    return configF.minimalCompletionStage();
+}
+```
+
+- `minimalCompletionStage()`：对外暴露能力更少的 `CompletionStage`，避免调用方拿到完整的 `CompletableFuture` 控制能力；
+- `copy()`：创建一个与原结果同步完成的副本，调用方无法通过副本反向完成原始任务。
+
+这类 API 适合封装组件、缓存加载器和异步配置中心，减少外部代码修改内部异步状态的可能性。
+
+### 11.6 了解 `obtrudeValue` 的危险性
+
+```java
+future.obtrudeValue(fallback);
+future.obtrudeException(new IllegalStateException("强制失败"));
+```
+
+`obtrudeValue` 和 `obtrudeException` 会**强行覆盖**已有结果，可能导致已经拿到旧结果的调用方与后续调用方看到不同值。它们不适合普通超时降级或异常处理，只建议用于故障恢复、测试和调试场景。
+
+### 11.7 正确理解取消：取消的是阶段，不一定是任务
+
+```java
+boolean cancelled = future.cancel(true);
+```
+
+取消 `CompletableFuture` 通常会让依赖它的阶段以取消异常结束，但不保证已经运行的底层任务被中断。要实现真正可取消，需要同时满足：
+
+- 底层任务响应线程中断或客户端取消信号；
+- HTTP、数据库、RPC 客户端支持取消；
+- 业务代码在循环或等待点检查取消状态；
+- 资源释放逻辑放在 `finally` 中。
+
+### 11.8 使用 `handle` 保留“成功/降级/失败”状态
+
+不要只返回一个默认值而丢失真实状态，可以把结果包装成带状态的对象：
+
+```java
+CompletableFuture<CallResult<User>> result = userF.handle((user, ex) -> {
+    if (ex != null) {
+        return CallResult.fallback(ex.getCause());
+    }
+    return CallResult.success(user);
+});
+```
+
+这样调用方可以区分真正成功、业务降级和调用失败，避免后续代码误把降级数据当成正常数据。
+
+## 十二、整体 API 关系图
 
 ```mermaid
 mindmap
@@ -652,7 +769,7 @@ mindmap
       get / join
 ```
 
-### 9.7 一句话总结
+## 十三、一句话总结
 
 > **CompletableFuture = Future + 回调 + 编排 + 异常处理**
 > 异步任务的"乐高积木"，能把复杂的并发逻辑写得**像同步代码一样优雅**。🎉🎉🎉
