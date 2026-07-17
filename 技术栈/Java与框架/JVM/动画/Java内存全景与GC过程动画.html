@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="完整 JVM 运行时数据区、JMM 同步关系与 G1 GC 过程交互动画">
+  <title>Java 内存全景与 GC 过程动画</title>
+  <style>
+    :root {
+      --navy: #071a36;
+      --ink: #10233f;
+      --muted: #60728d;
+      --paper: #f4f8ff;
+      --line: #d7e3f4;
+      --blue: #2f70f5;
+      --blue-soft: #e7efff;
+      --teal: #16b8a7;
+      --teal-soft: #e1f9f5;
+      --violet: #8b61e8;
+      --violet-soft: #eee9ff;
+      --amber: #ecaa31;
+      --amber-soft: #fff4dc;
+      --rose: #e46275;
+      --rose-soft: #ffeaed;
+      --green: #259e65;
+      --green-soft: #e3f7eb;
+      --shadow: 0 18px 42px rgba(30, 58, 110, .12);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% 2%, rgba(55, 119, 255, .14), transparent 26rem),
+        radial-gradient(circle at 91% 7%, rgba(135, 96, 232, .12), transparent 23rem),
+        var(--paper);
+      font-family: "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    button:focus-visible { outline: 3px solid rgba(47,112,245,.35); outline-offset: 3px; }
+    code { font-family: Consolas, "Cascadia Code", monospace; }
+
+    .page { width: min(1500px, calc(100% - 30px)); margin: 0 auto; padding: 14px 0 44px; }
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(21px, 3vw, 32px);
+      color: #fff;
+      border-radius: 28px;
+      background: linear-gradient(132deg, #061530, #113869);
+      box-shadow: var(--shadow);
+    }
+    .hero::after {
+      position: absolute; right: 5%; top: -104px; width: 205px; height: 205px;
+      border: 1px solid rgba(255,255,255,.18); border-radius: 50%; content: "";
+    }
+    .eyebrow {
+      display: inline-block; padding: 7px 11px; color: #bcecff; font-size: 12px; font-weight: 800;
+      letter-spacing: .08em; border: 1px solid rgba(188,236,255,.28); border-radius: 999px; background: rgba(255,255,255,.08);
+    }
+    h1 { max-width: 1320px; margin: 11px 0 8px; font-size: clamp(28px, 3.3vw, 43px); line-height: 1.18; letter-spacing: -.04em; }
+    .hero p { max-width: 1120px; margin: 0; color: rgba(255,255,255,.79); font-size: 14px; line-height: 1.6; }
+    .scope-line { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+    .scope-line span { padding: 5px 8px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,.22); border-radius: 999px; background: rgba(255,255,255,.08); }
+
+    .tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 22px 0 16px; padding: 8px; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.78); box-shadow: 0 8px 24px rgba(35,64,114,.07); }
+    .tab { min-height: 58px; padding: 10px 15px; color: var(--muted); font-weight: 800; text-align: left; border: 0; border-radius: 12px; background: transparent; }
+    .tab small { display: block; margin-top: 4px; font-size: 12px; font-weight: 600; }
+    .tab[aria-selected="true"] { color: #fff; background: linear-gradient(135deg, var(--blue), #557df1); box-shadow: 0 8px 18px rgba(47,112,245,.23); }
+    .panel[hidden] { display: none; }
+    .panel { animation: enter .26s ease both; }
+    @keyframes enter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .headline { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; justify-content: space-between; margin: 24px 2px 13px; }
+    .headline h2 { margin: 0; font-size: clamp(24px, 3vw, 34px); letter-spacing: -.035em; }
+    .headline p { max-width: 780px; margin: 8px 0 0; color: var(--muted); line-height: 1.65; }
+    .tag { padding: 7px 10px; color: #315684; font-size: 12px; font-weight: 800; border-radius: 999px; background: var(--blue-soft); }
+    .diagram { overflow: hidden; border: 1px solid #cadbf3; border-radius: 22px; background: #fff; box-shadow: var(--shadow); }
+    .diagram-top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 13px 18px; color: #5d718d; font-size: 13px; border-bottom: 1px solid #e6eef9; background: linear-gradient(90deg,#fcfdff,#f0f6ff); }
+    .diagram-top strong { color: #254a7c; }
+    .scroll { overflow-x: auto; }
+
+    .jvm-map { position: relative; width: 1300px; min-height: 670px; padding: 26px; background-image: linear-gradient(rgba(59,113,202,.045) 1px, transparent 1px), linear-gradient(90deg,rgba(59,113,202,.045) 1px, transparent 1px); background-size: 25px 25px; }
+    .spec-shell { position: relative; padding: 34px 20px 22px; border: 2px solid #b8cceb; border-radius: 22px; background: rgba(249,252,255,.95); }
+    .shell-label { position: absolute; top: -13px; left: 16px; padding: 5px 10px; color: #31557f; font-size: 12px; font-weight: 900; border: 1px solid #b8cceb; border-radius: 999px; background: #fff; }
+    .shared { display: grid; grid-template-columns: .9fr 1.1fr; gap: 16px; }
+    .private-row { display: grid; grid-template-columns: 1fr .68fr; gap: 16px; margin-top: 16px; }
+    .zone { position: relative; min-height: 150px; padding: 17px; border: 2px solid; border-radius: 17px; transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease, opacity .25s ease; }
+    .zone h3 { margin: 0 0 8px; font-size: 18px; }
+    .zone p { margin: 0; color: #536783; font-size: 13px; line-height: 1.55; }
+    .zone .sub { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 12px; }
+    .sub span { padding: 5px 8px; color: #49617f; font-size: 12px; font-weight: 700; border-radius: 7px; background: rgba(255,255,255,.76); }
+    .method { border-color: #b9a1f5; background: var(--violet-soft); }
+    .heap { border-color: #85d7cd; background: var(--teal-soft); }
+    .threads { border-color: #efc66c; background: var(--amber-soft); }
+    .pc { border-color: #9ab9fb; background: var(--blue-soft); }
+    .native { border-color: #eda7b0; background: var(--rose-soft); }
+    .thread-a { display: grid; grid-template-columns: 180px 1fr 210px; gap: 12px; padding: 14px; border: 1px dashed #d4bc78; border-radius: 14px; background: rgba(255,255,255,.5); }
+    .thread-b { display: flex; align-items: center; justify-content: center; min-height: 142px; color: #7c6636; font-size: 13px; font-weight: 800; border: 1px dashed #d4bc78; border-radius: 14px; background: rgba(255,255,255,.42); }
+    .frame-stack { display: grid; gap: 7px; margin-top: 10px; }
+    .frame { padding: 8px 10px; color: #765b25; font: 700 12px Consolas, monospace; border: 1px solid #dfbd62; border-radius: 7px; background: #fffdf6; transition: transform .25s ease, opacity .25s ease; }
+    .frame.work { opacity: .45; transform: translateY(5px); }
+    .heap-regions { display: grid; grid-template-columns: 1.35fr .55fr .55fr 1.5fr; gap: 6px; margin-top: 13px; }
+    .region { min-height: 50px; padding: 7px; color: #24685f; font-size: 11px; font-weight: 900; border: 1px solid #77cfc3; border-radius: 8px; background: rgba(255,255,255,.67); }
+    .region em { display: block; margin-top: 4px; color: #43897f; font-size: 10px; font-style: normal; font-weight: 600; }
+    .implementation { display: grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap: 12px; margin-top: 18px; padding: 18px; border: 2px dashed #afc0d8; border-radius: 18px; background: rgba(239,245,253,.76); }
+    .impl-title { grid-column: 1 / -1; margin: -5px 0 0; color: #506a8b; font-size: 12px; font-weight: 900; }
+    .impl { padding: 12px; color: #4f6685; font-size: 12px; line-height: 1.55; border: 1px solid #c8d7e9; border-radius: 11px; background: #fff; transition: transform .25s ease, box-shadow .25s ease; }
+    .impl b { display: block; margin-bottom: 4px; color: #294b77; }
+
+    .jmm-map { width: 1220px; min-height: 560px; padding: 25px; background: #fbfdff; }
+    .jmm-not-physical { margin: 0 0 18px; padding: 11px 14px; color: #4d6380; font-size: 13px; line-height: 1.6; border: 1px solid #bed1ed; border-radius: 11px; background: #edf4ff; }
+    .jmm-core { position: relative; display: grid; grid-template-columns: 1fr 1.08fr 1fr; gap: 18px; align-items: stretch; }
+    .thread-card, .sync-card { min-height: 210px; padding: 18px; border: 2px solid; border-radius: 17px; background: #fff; transition: transform .25s ease, box-shadow .25s ease; }
+    .thread-card.a { border-color: #78d4c7; background: #effbf9; }
+    .thread-card.b { border-color: #bca3f4; background: #f5f1ff; }
+    .sync-card { border-color: #98baf9; background: #edf4ff; }
+    .thread-card h3, .sync-card h3 { margin: 0 0 10px; font-size: 18px; }
+    .memory-cell { margin-top: 8px; padding: 10px; font: 700 13px Consolas, monospace; border: 1px solid #cbdcf2; border-radius: 8px; background: rgba(255,255,255,.85); }
+    .memory-cell small { display: block; margin-top: 5px; color: #657994; font: 600 11px "Microsoft YaHei", sans-serif; }
+    .edge { position: relative; margin: 12px 0; padding: 9px 11px; color: #315681; font-size: 12px; font-weight: 800; border-left: 4px solid var(--blue); border-radius: 6px; background: rgba(255,255,255,.7); transition: background .25s ease, color .25s ease; }
+    .edge::after { position: absolute; right: 10px; content: "→"; }
+    .atomic-strip { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; margin-top: 18px; }
+    .atomic-card { padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: #fff; }
+    .atomic-card h4 { margin: 0 0 9px; font-size: 15px; }
+    .race { display: flex; align-items: center; gap: 7px; color: #a34a56; font: 700 12px Consolas, monospace; }
+    .race span, .safe-step span { padding: 6px; border-radius: 6px; background: var(--rose-soft); }
+    .safe-step { display: flex; align-items: center; gap: 7px; color: #237055; font: 700 12px Consolas, monospace; }
+    .safe-step span { background: var(--green-soft); }
+
+    .gc-map { width: 1320px; min-height: 690px; padding: 24px; background-image: linear-gradient(rgba(59,113,202,.045) 1px, transparent 1px), linear-gradient(90deg,rgba(59,113,202,.045) 1px, transparent 1px); background-size: 25px 25px; }
+    .gc-rule { display: flex; gap: 11px; align-items: start; margin-bottom: 16px; padding: 12px 14px; color: #4e6584; font-size: 13px; line-height: 1.6; border: 1px solid #c6d7ef; border-radius: 12px; background: #f0f6ff; }
+    .gc-rule b { color: #244b7b; white-space: nowrap; }
+    .young-title { display: flex; align-items: center; justify-content: space-between; margin: 0 0 9px; }
+    .young-title h3 { margin: 0; font-size: 19px; }
+    .young-title span { color: #647894; font-size: 12px; font-weight: 700; }
+    .gc-heap { position: relative; height: 320px; border: 2px solid #b5cae7; border-radius: 18px; background: rgba(255,255,255,.85); }
+    .gc-zone { position: absolute; top: 42px; bottom: 22px; padding: 13px; border: 2px solid; border-radius: 14px; transition: box-shadow .25s ease, border-color .25s ease; }
+    .gc-zone h4 { margin: 0; font-size: 15px; }
+    .gc-zone p { margin: 4px 0 0; color: #60748f; font-size: 11px; }
+    .eden { left: 18px; width: 41%; border-color: #efc466; background: #fff7e8; }
+    .from { left: 43%; width: 15%; border-color: #77d0c3; background: #e9faf7; }
+    .to { left: 60%; width: 15%; border-color: #77d0c3; background: #e9faf7; }
+    .old { right: 18px; width: 22%; border-color: #aa8cf0; background: #f2eeff; }
+    .to .empty { margin-top: 86px; color: #91a1b6; font-size: 12px; text-align: center; }
+    .obj { position: absolute; z-index: 3; width: 118px; padding: 8px; color: #275066; font: 800 11px Consolas, monospace; border: 1px solid #66c3b5; border-radius: 8px; background: #fff; box-shadow: 0 3px 8px rgba(40,80,110,.1); transition: left .65s ease, top .65s ease, opacity .42s ease, transform .42s ease, border-color .42s ease; }
+    .obj small { display: block; margin-top: 5px; color: #638098; font: 600 10px "Microsoft YaHei", sans-serif; }
+    .obj.dead { border-color: #ee98a1; background: #fff2f3; }
+    .obj.oldobj { border-color: #a98bed; background: #faf8ff; }
+    #obj-request { left: 52px; top: 130px; }
+    #obj-temp { left: 190px; top: 130px; }
+    #obj-session { left: 328px; top: 130px; }
+    #obj-config { left: 590px; top: 130px; }
+    #obj-cache { left: 1044px; top: 130px; }
+    #obj-dead-old { left: 1044px; top: 207px; }
+    .roots { display: flex; gap: 12px; margin-top: 15px; }
+    .root { padding: 9px 11px; color: #42617f; font: 700 12px Consolas, monospace; border: 1px solid #9dbcf3; border-radius: 8px; background: #edf4ff; transition: box-shadow .25s ease; }
+    .root span { color: #6c7f97; font: 600 10px "Microsoft YaHei", sans-serif; }
+    .g1-flow { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 22px; }
+    .g1-step { position: relative; min-height: 92px; padding: 12px; color: #596f8c; font-size: 11px; line-height: 1.45; border: 1px solid #cfddf1; border-radius: 11px; background: #fff; transition: color .25s ease, background .25s ease, transform .25s ease, box-shadow .25s ease; }
+    .g1-step b { display: block; margin-bottom: 5px; color: #294c79; font-size: 12px; }
+    .g1-step:not(:last-child)::after { position: absolute; top: 40px; right: -8px; z-index: 2; color: #83a1cb; content: "→"; }
+    .g1-note { margin-top: 12px; color: #657894; font-size: 12px; }
+
+    .is-active { box-shadow: 0 0 0 4px rgba(47,112,245,.14), 0 11px 24px rgba(37,79,140,.16); transform: translateY(-3px); }
+    .is-active.edge { color: #123d71; border-left-color: var(--teal); background: #dff9f4; }
+    .g1-step.is-active { color: #214c78; background: #e8f0ff; border-color: #79a5f9; }
+    .g1-step.is-active b { color: #1e5ece; }
+    .hot { animation: hot 1.15s ease-in-out infinite; }
+    @keyframes hot { 50% { transform: translateY(-3px) scale(1.012); } }
+
+    .story { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(290px, .85fr); gap: 17px; margin-top: 17px; }
+    .story-card, .facts { padding: 21px; border: 1px solid var(--line); border-radius: 17px; background: rgba(255,255,255,.92); box-shadow: 0 9px 22px rgba(35,65,111,.06); }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; color: #6a7b93; font-size: 12px; font-weight: 800; }
+    .meta .tag { margin-left: auto; }
+    .story-card h3 { margin: 11px 0 8px; font-size: 25px; letter-spacing: -.025em; }
+    .story-card p { margin: 0; color: #50647f; line-height: 1.75; }
+    .code { margin-top: 14px; padding: 9px 11px; overflow-x: auto; color: #28507f; font: 700 12px Consolas, monospace; border: 1px solid #d6e4f7; border-radius: 8px; background: #f2f7ff; }
+    .controls { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; margin-top: 16px; }
+    .button { min-height: 38px; padding: 8px 12px; color: #295187; font-size: 14px; font-weight: 800; border: 1px solid #c9daf2; border-radius: 9px; background: #f7faff; }
+    .button:hover { background: #eaf2ff; }
+    .button.primary { color: #fff; border-color: #2f70f5; background: var(--blue); }
+    .progress { flex: 1; min-width: 120px; height: 8px; overflow: hidden; border-radius: 999px; background: #e2eaf6; }
+    .progress span { display: block; width: 10%; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--blue),var(--teal)); transition: width .3s ease; }
+    .facts h3 { margin: 0 0 11px; font-size: 16px; }
+    .facts ul { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .facts li { position: relative; padding-left: 18px; color: #566a85; font-size: 13px; line-height: 1.55; }
+    .facts li::before { position: absolute; top: .55em; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--violet); content: ""; }
+    .notice { margin-top: 17px; padding: 14px 16px; color: #506681; font-size: 14px; line-height: 1.7; border: 1px solid #c9dbf3; border-radius: 12px; background: #edf4ff; }
+    .notice b { color: #254b7b; }
+    .footer { margin-top: 25px; color: #71839b; font-size: 12px; line-height: 1.7; }
+
+    @media (max-width: 780px) {
+      .page { width: min(100% - 18px, 1500px); padding-top: 9px; }
+      .hero { padding: 21px 18px; border-radius: 19px; }
+      .tabs { grid-template-columns: 1fr; }
+      .story { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">JAVA MEMORY ATLAS · 完整版</span>
+      <h1>把“内存模型”“运行时区域”和“GC 周期”放回各自的层次</h1>
+      <p>这不是一张把所有名词硬塞在一起的内存图：JMM 只讲并发语义；JVM 页展示 JVMS 定义的完整运行时数据区及常见 HotSpot 实现层；GC 页则先走完一轮 Young GC，再进入有条件发生的 G1 全周期。</p>
+      <div class="scope-line">
+        <span>JVMS 逻辑运行时数据区</span>
+        <span>JMM happens-before</span>
+        <span>Young GC 复制/晋升</span>
+        <span>G1 并发标记与 Mixed GC</span>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Java 内存主题">
+      <button id="tab-jvm-full" class="tab" type="button" role="tab" aria-selected="true" aria-controls="jvm-full" data-scene="jvm">
+        01 · JVM 内存全景
+        <small>规范层运行时数据区 + 常见 HotSpot 实现层</small>
+      </button>
+      <button id="tab-jmm-full" class="tab" type="button" role="tab" aria-selected="false" aria-controls="jmm-full" data-scene="jmm">
+        02 · JMM 同步关系
+        <small>不是内存布局，而是跨线程可见性与顺序规则</small>
+      </button>
+      <button id="tab-gc-full" class="tab" type="button" role="tab" aria-selected="false" aria-controls="gc-full" data-scene="gc">
+        03 · GC 真实流程
+        <small>Young GC 循环 + G1 的条件性全周期</small>
+      </button>
+    </nav>
+
+    <section id="jvm-full" class="panel" role="tabpanel" aria-labelledby="tab-jvm-full">
+      <div class="headline">
+        <div>
+          <h2>JVM 运行时数据区：规范概念与实现细节分层展示</h2>
+          <p>上半部分是 JVMS 的线程共享 / 线程私有区域；下半部分以虚线框单列 HotSpot 常见的 native memory 组成，避免把 Metaspace、Direct Memory 误画进 Java 堆。</p>
+        </div>
+        <span class="tag">JVMS 2.5 / 2.6</span>
+      </div>
+      <div class="diagram">
+        <div class="diagram-top"><strong>阅读方式：</strong><span>实线框 = JVM 规范中的逻辑运行时区域；虚线框 = HotSpot 常见实现层；蓝色高亮随故事步骤移动。</span></div>
+        <div class="scroll">
+          <div id="jvmMap" class="jvm-map" data-phase="0">
+            <div class="spec-shell">
+              <span class="shell-label">JVMS 运行时数据区（逻辑模型）</span>
+              <div class="shared">
+                <article id="method-area" class="zone method hotspot">
+                  <h3>方法区（线程共享）</h3>
+                  <p>每个类 / 接口的结构：字段与方法数据、方法与构造器代码。</p>
+                  <div class="sub"><span>运行时常量池</span><span>符号引用</span><span>类初始化信息</span></div>
+                </article>
+                <article id="heap" class="zone heap hotspot">
+                  <h3>堆（线程共享）</h3>
+                  <p>所有类实例与数组的分配区域；GC 的主要管理对象。JVMS 不规定分代或 Region 形状。</p>
+                  <div class="heap-regions">
+                    <div id="eden-region" class="region hotspot">Eden<em>常见年轻代角色</em></div>
+                    <div class="region">S0<em>From</em></div>
+                    <div class="region">S1<em>To</em></div>
+                    <div id="old-region" class="region hotspot">Old / G1 Old Region<em>实现角色，不是规范分区</em></div>
+                  </div>
+                </article>
+              </div>
+              <div class="private-row">
+                <article id="thread-a" class="zone threads hotspot">
+                  <h3>线程 A 私有区域</h3>
+                  <div class="thread-a">
+                    <div id="pc-register" class="zone pc hotspot">
+                      <h3>PC Register</h3>
+                      <p>当前 Java 字节码指令地址；执行 native 方法时未规定。</p>
+                    </div>
+                    <div id="vm-stack" class="zone threads hotspot">
+                      <h3>Java VM Stack</h3>
+                      <p>每次方法调用创建一个栈帧。</p>
+                      <div class="frame-stack">
+                        <div id="main-frame" class="frame hotspot">main()：locals / operand stack / link</div>
+                        <div id="work-frame" class="frame work hotspot">service()：新的当前栈帧</div>
+                      </div>
+                    </div>
+                    <div id="native-stack" class="zone native hotspot">
+                      <h3>Native Method Stack</h3>
+                      <p>实现可用来支持 JNI / native 方法，也可与其他栈合并。</p>
+                    </div>
+                  </div>
+                </article>
+                <article class="thread-b">
+                  线程 B、线程 C … 各自拥有独立的 PC / VM Stack / Native Stack
+                </article>
+              </div>
+            </div>
+
+            <div class="implementation">
+              <div class="impl-title">HotSpot 常见实现层（不属于“JVMS 运行时数据区布局”的强制定义）</div>
+              <div id="metaspace" class="impl hotspot"><b>Metaspace</b>JDK 8+ 中类元数据的主要承载位置，使用 native memory；它是方法区的实现相关部分，不等于“方法区本身”。</div>
+              <div id="code-cache" class="impl hotspot"><b>Code Cache</b>JIT 编译后的机器码等实现数据。</div>
+              <div id="direct-memory" class="impl hotspot"><b>Direct Memory</b>NIO 等可使用的堆外内存；受进程内存约束，不是 Java Heap。</div>
+              <div id="os-native" class="impl hotspot"><b>OS / Native</b>线程、JNI 库、C heap 等其他进程内存消耗。</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="jmm-full" class="panel" role="tabpanel" aria-labelledby="tab-jmm-full" hidden>
+      <div class="headline">
+        <div>
+          <h2>JMM：完整的重点是同步关系，不是“区域列表”</h2>
+          <p>JMM 不规定 JVM 堆、栈或 CPU Cache 的物理结构。它规定线程间读写的合法可见性、排序约束和 happens-before 关系；下图用安全发布和丢失更新两个典型问题覆盖三个核心维度。</p>
+        </div>
+        <span class="tag">JLS 第 17 章</span>
+      </div>
+      <div class="diagram">
+        <div class="diagram-top"><strong>关键边界：</strong><span>“主内存 / 工作内存”仅是 JMM 抽象，不能分别等同 JVM 堆 / 虚拟机栈，也不能当成 CPU Cache 的实物图。</span></div>
+        <div class="scroll">
+          <div id="jmmMap" class="jmm-map" data-phase="0">
+            <p class="jmm-not-physical"><b>安全发布协议：</b>线程 A 先写普通变量 data = 42，再写 volatile ready = true；线程 B 先读到 ready == true，随后读取 data。JMM 通过程序顺序、volatile 规则及传递性建立可推理的结果。</p>
+            <div class="jmm-core">
+              <article id="jmm-thread-a" class="thread-card a hotspot">
+                <h3>线程 A（执行 publish）</h3>
+                <div class="memory-cell">data = 42<small>普通写：仅靠这一句不保证 B 立即可见</small></div>
+                <div class="memory-cell">ready = true<small>volatile 写：发布边界</small></div>
+              </article>
+              <article id="jmm-sync" class="sync-card hotspot">
+                <h3>JMM 中的同步顺序</h3>
+                <div id="edge-program" class="edge hotspot">程序顺序：data 写 → ready 写</div>
+                <div id="edge-volatile" class="edge hotspot">volatile：ready 写 → 后续 ready 读</div>
+                <div id="edge-transitive" class="edge hotspot">传递性：发布前 data 写对 B 可见</div>
+              </article>
+              <article id="jmm-thread-b" class="thread-card b hotspot">
+                <h3>线程 B（执行 consume）</h3>
+                <div class="memory-cell">if (ready)<small>先进行 volatile 读</small></div>
+                <div class="memory-cell">use(data)<small>读到发布前写入的 42</small></div>
+              </article>
+            </div>
+            <div class="atomic-strip">
+              <article id="race-card" class="atomic-card hotspot">
+                <h4>原子性反例：volatile count++ 仍会丢失更新</h4>
+                <div class="race"><span>A read 0</span>→<span>B read 0</span>→<span>A write 1</span>→<span>B write 1</span>→ final 1</div>
+              </article>
+              <article id="atomic-card" class="atomic-card hotspot">
+                <h4>需要复合原子性时：锁或 AtomicInteger</h4>
+                <div class="safe-step"><span>CAS / lock</span>→<span>串行化更新</span>→ final 2</div>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="gc-full" class="panel" role="tabpanel" aria-labelledby="tab-gc-full" hidden>
+      <div class="headline">
+        <div>
+          <h2>GC：先完成一轮 Young GC，再看 G1 如何回收老年代</h2>
+          <p>一轮 Young GC 不会“顺便 Full GC”。本图先严格展示 Eden + Survivor From 的复制、年龄增长与晋升；随后用 G1 周期说明何时才会并发标记、Remark、Cleanup 与 Mixed GC。</p>
+        </div>
+        <span class="tag">HotSpot G1 教学模型</span>
+      </div>
+      <div class="diagram">
+        <div class="diagram-top"><strong>当前场景：</strong><span>绿色边框 = 从 GC Roots 可达；红色 = 不可达；对象移动表示 evacuation（复制/转移），不是普通内存拷贝 API。</span></div>
+        <div class="scroll">
+          <div id="gcMap" class="gc-map" data-phase="0">
+            <div class="gc-rule"><b>先区分范围</b><span>Young GC 回收 Eden + 当前 Survivor From；老年代中的垃圾不会因为这次 Young GC 自动清掉。Full GC 是极端压力下可能发生的兜底，不是这条流程的最后一格。</span></div>
+            <div class="young-title"><h3>一轮 Young GC：分配 → Root 扫描 → Evacuate → 角色交换</h3><span>From / To 在一轮结束后交换角色</span></div>
+            <div class="gc-heap">
+              <section id="gc-eden" class="gc-zone eden hotspot"><h4>Eden</h4><p>新对象分配；TLAB 通常从这里切出</p></section>
+              <section id="gc-from" class="gc-zone from hotspot"><h4>Survivor From</h4><p>上一轮存活对象</p></section>
+              <section id="gc-to" class="gc-zone to hotspot"><h4>Survivor To</h4><p>本轮复制目标</p><div class="empty">开始时为空</div></section>
+              <section id="gc-old" class="gc-zone old hotspot"><h4>Old</h4><p>长期存活 / 提前晋升</p></section>
+              <div id="obj-request" class="obj hotspot">Request#1<small>Root: thread local</small></div>
+              <div id="obj-temp" class="obj dead hotspot">Temp#2<small>无 Root 路径</small></div>
+              <div id="obj-session" class="obj hotspot">Session#3<small>Request#1 → Session#3</small></div>
+              <div id="obj-config" class="obj hotspot">Config#4<small>From, age = 14</small></div>
+              <div id="obj-cache" class="obj oldobj hotspot">UserCache#5<small>Root: static field</small></div>
+              <div id="obj-dead-old" class="obj oldobj dead hotspot">OldGarbage#6<small>Old 中不可达</small></div>
+            </div>
+            <div class="roots">
+              <div id="root-thread" class="root hotspot">Thread Stack <span>→ Request#1</span></div>
+              <div id="root-static" class="root hotspot">Static Field <span>→ UserCache#5</span></div>
+              <div id="root-jni" class="root">JNI / VM Internal <span>其他 Roots</span></div>
+            </div>
+            <div class="g1-flow" aria-label="G1 全周期">
+              <div id="g1-young" class="g1-step hotspot"><b>Young-only</b>常规 Young GC 循环。</div>
+              <div id="g1-concurrent-start" class="g1-step hotspot"><b>Concurrent Start</b>达到 IHOP 等阈值时，在一次 Young GC 中启动标记。</div>
+              <div id="g1-mark" class="g1-step hotspot"><b>Concurrent Mark</b>与应用并发识别 Old Region 存活度。</div>
+              <div id="g1-remark" class="g1-step hotspot"><b>Remark（STW）</b>完成标记、处理引用等关键收尾。</div>
+              <div id="g1-cleanup" class="g1-step hotspot"><b>Cleanup</b>整理回收候选 Region。</div>
+              <div id="g1-mixed" class="g1-step hotspot"><b>Mixed GC</b>Young + 部分垃圾较多的 Old Region。</div>
+              <div id="g1-fallback" class="g1-step hotspot"><b>Full GC（兜底）</b>内存极端紧张时可能退化；不是正常固定阶段。</div>
+            </div>
+            <p class="g1-note">注意：G1 的 Young / Old 不是两块固定连续内存，而是许多 Region 在某一时刻承担的逻辑角色。不同收集器（Parallel、ZGC、Shenandoah）会有不同流程。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="story" aria-label="步骤控制与说明">
+      <article class="story-card">
+        <div class="meta"><span id="stepIndex">JVM · 1 / 5</span><span id="stepTag" class="tag">类加载</span></div>
+        <h3 id="stepTitle">类信息与运行时常量池进入方法区范畴</h3>
+        <p id="stepText" aria-live="polite">先从规范层开始：方法区与堆被所有线程共享；PC、Java VM Stack 与 Native Method Stack 是每个线程独有的运行时数据区。</p>
+        <div id="stepCode" class="code">ClassLoader → class metadata / runtime constant pool</div>
+        <div class="controls">
+          <button id="previous" class="button" type="button">← 上一步</button>
+          <button id="play" class="button primary" type="button" aria-pressed="false">▶ 播放</button>
+          <button id="reset" class="button" type="button">↺ 重置</button>
+          <div class="progress" aria-label="步骤进度"><span id="progress"></span></div>
+          <button id="next" class="button" type="button">下一步 →</button>
+        </div>
+      </article>
+      <aside class="facts">
+        <h3>本步检查点</h3>
+        <ul id="factList">
+          <li>方法区是 JVM 规范的逻辑概念。</li>
+          <li>JDK 8+ HotSpot 的 Metaspace 使用 native memory。</li>
+          <li>不要把永久代、方法区、Metaspace 当作三个同义词。</li>
+        </ul>
+      </aside>
+    </section>
+
+    <aside class="notice"><b>总原则：</b>JVMS 明确把运行时数据区定义为抽象机器的一部分，但并不规定这些区域的物理内存布局，也不规定垃圾收集算法。页面中所有 Eden / Survivor / Region / Metaspace 内容都明确标成 HotSpot 实现层或教学模型。</aside>
+    <footer class="footer">键盘：← / → 切换步骤；1 / 2 / 3 切换主题；空格播放或暂停；R 重置。页面无第三方依赖，可直接离线打开。</footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var stories = {
+        jvm: [
+          { tag: "类加载", title: "类信息与运行时常量池进入方法区范畴", text: "先从规范层开始：方法区与堆被所有线程共享；PC、Java VM Stack 与 Native Method Stack 是每个线程独有的运行时数据区。", code: "ClassLoader → class metadata / runtime constant pool", targets: ["method-area", "metaspace"], facts: ["方法区是 JVM 规范的逻辑概念。", "JDK 8+ HotSpot 的 Metaspace 使用 native memory。", "不要把永久代、方法区、Metaspace 当作三个同义词。"] },
+          { tag: "入栈", title: "进入 main()：PC 定位，main 栈帧成为当前帧", text: "线程开始执行 Java 方法时，自己的 PC 指向当前字节码指令，Java VM Stack 压入 main() 栈帧。栈帧保存局部变量表、操作数栈、动态链接和返回信息。", code: "Thread A: pc = current bytecode; push main() frame", targets: ["thread-a", "pc-register", "vm-stack", "main-frame"], facts: ["栈帧只属于创建它的线程。", "递归过深常见 StackOverflowError。", "栈帧可由实现以非连续方式存放。"] },
+          { tag: "分配", title: "new 对象：引用进入栈帧，对象逻辑上从堆分配", text: "执行 new 时，局部变量表中的引用指向对象实例；JVMS 规定类实例与数组从堆分配。TLAB、逃逸分析和标量替换是具体 JVM 的优化，不应反推为规范布局。", code: "Order order = new Order();  // local reference → heap object", targets: ["heap", "eden-region", "main-frame"], facts: ["栈里通常保存引用或基本类型值，不是“整对象”。", "堆不要求连续，也可扩张或收缩。", "Java Heap space 表示堆无法满足分配，不等于进程全部内存。"] },
+          { tag: "嵌套调用", title: "调用 service()：新栈帧压入，前一帧暂时不是当前帧", text: "main() 调用 service() 后，service() 栈帧成为当前帧；方法完成后它被销毁，控制权和返回值回到调用者栈帧。", code: "main() → push service() frame → return → pop frame", targets: ["vm-stack", "work-frame", "pc-register"], facts: ["每次方法调用创建一个新帧。", "操作数栈用于准备参数、执行字节码运算和接收返回值。", "方法返回不等于它曾引用的堆对象立即被 GC。"] },
+          { tag: "堆外与实现", title: "堆外内存也是进程内存，但不等于 Java 堆", text: "Metaspace、Code Cache、Direct Memory、线程和 JNI 等都会影响进程内存。排障不能只盯 Xmx；必须按异常、NMT、JFR、GC 日志和实际启动参数分层观察。", code: "process memory = Java heap + metaspace + stacks + direct + code cache + native ...", targets: ["metaspace", "code-cache", "direct-memory", "os-native"], facts: ["Direct Memory 常见于 NIO 等场景。", "Code Cache 保存 JIT 编译后的机器码等实现数据。", "各 JVM / 版本的实际内存布局可不同。"] }
+        ],
+        jmm: [
+          { tag: "边界", title: "JMM 不画物理内存：它约束线程间的读写结果", text: "JMM 的完整重点是可见性、有序性、原子性与 happens-before。所谓主内存和工作内存只是规范抽象，不应与 JVM 堆、栈或 CPU Cache 逐格对应。", code: "JMM = visibility + ordering + atomicity semantics", targets: ["jmm-sync"], facts: ["JMM 不规定 JVM 堆/栈的结构。", "JMM 也不承诺某一级 CPU Cache 的具体行为。", "正确同步后的并发程序才具有可推理的跨线程结果。"] },
+          { tag: "程序顺序", title: "线程 A 按程序顺序先写 data，再写 ready", text: "同一线程内，data = 42 happens-before ready = true。仅有这个单线程顺序，还不足以让另一个线程必然观察到 data 的新值。", code: "A: data = 42;  ready = true;", targets: ["jmm-thread-a", "edge-program"], facts: ["程序顺序规则只覆盖同一线程。", "编译器和处理器可在不改变单线程语义的范围内优化。", "跨线程推理必须再建立同步边。"] },
+          { tag: "volatile 发布", title: "对 ready 的 volatile 写建立发布边界", text: "线程 A 写 volatile ready = true。该写与线程 B 后续对同一 ready 的读之间有 volatile happens-before 关系；它给之前的普通写提供了可见性与顺序约束。", code: "A: ready = true;  // volatile write / release-like ordering", targets: ["jmm-thread-a", "edge-program", "edge-volatile"], facts: ["volatile 提供可见性与有序性。", "它不提供互斥。", "安全发布协议要求读方先观察同一 volatile 变量。"] },
+          { tag: "获取与传递", title: "线程 B 读到 ready 后，再读 data", text: "线程 B 的 volatile 读与 A 的 volatile 写相连，加上程序顺序与传递性，因此 B 在 ready 为 true 时随后读取 data 可以看到 42。", code: "B: if (ready) { use(data); }  // data == 42", targets: ["jmm-thread-b", "edge-volatile", "edge-transitive"], facts: ["关键是 happens-before，不是“恰好刷新了缓存”。", "读写必须围绕同一个同步变量或锁建立协议。", "synchronized 的 unlock → 后续 lock 也可建立同步关系。"] },
+          { tag: "原子性", title: "volatile count++ 仍然会丢失更新", text: "count++ 是读、改、写三步。即使 count 是 volatile，两个线程仍可能都读到 0，再先后写回 1；要获得复合原子性，需要锁或 AtomicInteger 等工具。", code: "volatile int count; count++;  // NOT atomic", targets: ["race-card", "atomic-card"], facts: ["volatile 单次读写不是“所有相关操作原子”。", "AtomicInteger 使用 CAS 等机制提供特定原子更新。", "多字段不变式通常更适合由锁保护。"] }
+        ],
+        gc: [
+          { tag: "正常分配", title: "对象优先在 Eden / TLAB 分配（实现模型）", text: "Request、Temp、Session 进入 Eden；Config 是上一轮留在 Survivor From 的对象；Old 中还有长期存活和不可达对象。此时 GC 还没有开始。", code: "allocate → TLAB / Eden  (collector-dependent)", targets: ["gc-eden", "gc-from", "g1-young"], facts: ["Eden / Survivor / Old 是常见代际模型，不是 JVMS 强制布局。", "G1 实际将堆切成许多 Region。", "对象创建不意味着马上触发 GC。"], objects: { "obj-request": "eden", "obj-temp": "eden", "obj-session": "eden", "obj-config": "from", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "触发 Young GC", title: "Eden 无法继续分配：本轮只收集年轻代", text: "当分配失败或阈值触发，收集器发起 Young GC。此轮的 collection set 包含 Eden 和 Survivor From；OldGarbage#6 虽不可达，仍不会被这次 Young GC 顺手删除。", code: "Young collection set = Eden + Survivor From", targets: ["gc-eden", "gc-from", "g1-young"], facts: ["Young GC 通常需要至少短暂 STW。", "Old Gen 不属于这轮 Young collection set。", "Minor / Young 的术语和具体停顿依收集器而异。"], objects: { "obj-request": "eden", "obj-temp": "eden", "obj-session": "eden", "obj-config": "from", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "Root 扫描", title: "从 GC Roots 找到 Request、Session、Config 的可达路径", text: "线程栈 Root 指向 Request，Request 再引用 Session；Config 仍有引用路径。Temp 没有 Root 路径，因此不可达。静态字段引用的 UserCache 位于 Old，但不是本轮转移对象。", code: "GC Roots → Request#1 → Session#3;  Roots → Config#4", targets: ["root-thread", "root-static", "obj-request", "obj-session", "obj-config"], facts: ["垃圾判定核心是可达性分析，不是简单引用计数。", "循环引用整体不可达时仍可回收。", "根枚举与并发标记的具体实现因收集器不同。"], objects: { "obj-request": "live", "obj-temp": "dead", "obj-session": "live", "obj-config": "livefrom", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "Evacuate", title: "存活对象复制到 To；Config 达到阈值而晋升 Old", text: "Young GC 常通过 evacuation 复制 Eden 与 From 的存活对象。Request / Session 复制到 To，年龄从 0 到 1；Config 原 age=14，复制时达到阈值而晋升 Old。Temp 不被复制。", code: "live Eden → To(age + 1);  age threshold / space pressure → Old", targets: ["gc-to", "gc-old", "obj-request", "obj-session", "obj-config"], facts: ["对象移动后，JVM 必须维护正确引用。", "晋升阈值、空间担保是收集器策略。", "Survivor 放不下也可能导致提前晋升。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "回收与交换", title: "清空 Eden / From，并交换 Survivor 角色", text: "复制完成后，Eden 与本轮 From 被清空，Temp 占用的空间回到可分配集合；To 成为下一轮的 From。OldGarbage#6 仍留在 Old，等待适合老年代的回收阶段。", code: "reclaim Eden + old From;  swap(To → next From)", targets: ["gc-eden", "gc-from", "gc-to", "g1-young"], facts: ["这就是 Young GC 的一个完整可循环周期。", "对象设为 null 不等于这一刻必然回收。", "GC 回收的空间先回到 JVM 可用池，不必立即归还操作系统。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "条件分支", title: "达到并发标记阈值时，G1 才从一次 Young GC 启动全局标记", text: "G1 不会每轮 Young GC 都立刻回收 Old。达到 IHOP 等阈值时，一次 Concurrent Start Young GC 会启动并发标记，之后才有机会选择部分 Old Region 进入 Mixed GC。", code: "Young-only → Concurrent Start (conditional, e.g. IHOP)", targets: ["g1-young", "g1-concurrent-start"], facts: ["这是条件分支，不是 Young GC 的固定下一步。", "IHOP 是 G1 用于开始并发标记的一个重要阈值概念。", "实际触发以 JVM 参数和 GC 日志为准。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "并发标记", title: "Concurrent Mark → Remark（STW）→ Cleanup", text: "G1 在 Concurrent Mark 阶段与应用并发评估 Old Region 存活度；Remark 用短暂停顿完成关键收尾；Cleanup 形成后续 Mixed GC 的候选 Region。", code: "Concurrent Mark (concurrent) → Remark (STW) → Cleanup", targets: ["g1-mark", "g1-remark", "g1-cleanup", "gc-old"], facts: ["并发不等于全程没有 STW。", "Remark 会完成标记并处理部分引用相关工作。", "Cleanup 为 Old Region 的选择做准备。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "old" } },
+          { tag: "Mixed GC", title: "Mixed GC：Young + 选择的垃圾较多 Old Region", text: "Mixed GC 仍包含年轻代收集，并加上一部分垃圾比例较高的 Old Region。此时才可能转移 Old 中的存活对象，并回收 OldGarbage#6 所在 Region 的空间。", code: "Mixed GC = Young regions + selected old candidate regions", targets: ["g1-mixed", "gc-old", "obj-cache", "obj-dead-old"], facts: ["G1 选择的是 Region，而非固定连续“老年代大块”。", "Major GC 不是跨收集器严格统一术语。", "Mixed GC 结束后通常继续 Young-only 循环。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "gone" } },
+          { tag: "兜底而非常态", title: "Full GC 是内存极端紧张时的可能退化，不是固定收尾", text: "当正常并发/转移流程无法及时获得足够空间等极端情况出现时，JVM 可能退化到 Full GC。它的具体范围和行为随收集器、版本、参数而变，不能直接等同于“老年代 GC”。", code: "Full GC: fallback path, not the normal last stage", targets: ["g1-fallback"], facts: ["不要把 Full GC 画成每次 Young GC 的最后一步。", "Full GC 往往代价更高，但术语范围依实现而变。", "优化要基于 GC 日志与停顿/吞吐目标，而不是死背流程图。"], objects: { "obj-request": "to", "obj-temp": "gone", "obj-session": "to2", "obj-config": "promoted", "obj-cache": "old", "obj-dead-old": "gone" } }
+        ]
+      };
+
+      var state = { scene: "jvm", step: 0, playing: false, timer: null };
+      var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-scene]"));
+      var panels = Array.prototype.slice.call(document.querySelectorAll(".panel"));
+      var hotspots = Array.prototype.slice.call(document.querySelectorAll(".hotspot"));
+      var stepIndex = document.getElementById("stepIndex");
+      var stepTag = document.getElementById("stepTag");
+      var stepTitle = document.getElementById("stepTitle");
+      var stepText = document.getElementById("stepText");
+      var stepCode = document.getElementById("stepCode");
+      var factList = document.getElementById("factList");
+      var progress = document.getElementById("progress");
+      var play = document.getElementById("play");
+
+      function clearTimer() {
+        if (state.timer !== null) { window.clearTimeout(state.timer); state.timer = null; }
+      }
+      function schedule() {
+        clearTimer();
+        if (!state.playing) return;
+        state.timer = window.setTimeout(function () { move(1); schedule(); }, 4300);
+      }
+      function resetObjects() {
+        var map = document.getElementById("gcMap");
+        if (!map) return;
+        Array.prototype.slice.call(map.querySelectorAll(".obj")).forEach(function (obj) {
+          obj.classList.remove("hot");
+          obj.style.opacity = "";
+          obj.style.transform = "";
+          obj.style.left = "";
+          obj.style.top = "";
+        });
+      }
+      function placeObjects(states) {
+        resetObjects();
+        if (!states) return;
+        var positions = {
+          eden: { left: "", top: "" },
+          from: { left: "", top: "" },
+          live: { left: "", top: "" },
+          dead: { left: "", top: "" },
+          livefrom: { left: "", top: "" },
+          old: { left: "", top: "" },
+          to: { left: "805px", top: "130px" },
+          to2: { left: "805px", top: "207px" },
+          promoted: { left: "1080px", top: "207px" },
+          gone: { left: "", top: "" }
+        };
+        Object.keys(states).forEach(function (id) {
+          var obj = document.getElementById(id);
+          var mode = states[id];
+          if (!obj) return;
+          if (mode === "gone") {
+            obj.style.opacity = "0";
+            obj.style.transform = "scale(.72)";
+            return;
+          }
+          if (positions[mode] && positions[mode].left) {
+            obj.style.left = positions[mode].left;
+            obj.style.top = positions[mode].top;
+          }
+          if (mode === "live" || mode === "livefrom" || mode === "to" || mode === "to2" || mode === "promoted") obj.classList.add("hot");
+        });
+      }
+      function render(updateHash) {
+        var items = stories[state.scene];
+        var current = items[state.step];
+        hotspots.forEach(function (item) { item.classList.remove("is-active", "hot"); });
+        current.targets.forEach(function (id) {
+          var node = document.getElementById(id);
+          if (node) node.classList.add("is-active");
+        });
+        if (state.scene === "gc") placeObjects(current.objects);
+        else resetObjects();
+        panels.forEach(function (panel) { panel.hidden = panel.id !== state.scene + "-full"; });
+        tabs.forEach(function (tab) {
+          var active = tab.dataset.scene === state.scene;
+          tab.setAttribute("aria-selected", String(active));
+          tab.tabIndex = active ? 0 : -1;
+        });
+        stepIndex.textContent = (state.scene === "jvm" ? "JVM" : state.scene === "jmm" ? "JMM" : "GC") + " · " + (state.step + 1) + " / " + items.length;
+        stepTag.textContent = current.tag;
+        stepTitle.textContent = current.title;
+        stepText.textContent = current.text;
+        stepCode.textContent = current.code;
+        factList.innerHTML = "";
+        current.facts.forEach(function (fact) { var li = document.createElement("li"); li.textContent = fact; factList.appendChild(li); });
+        progress.style.width = (((state.step + 1) / items.length) * 100) + "%";
+        play.textContent = state.playing ? "Ⅱ 暂停" : "▶ 播放";
+        play.setAttribute("aria-pressed", String(state.playing));
+        if (updateHash) window.history.replaceState(null, "", "#" + state.scene);
+      }
+      function setScene(scene, updateHash) {
+        if (!stories[scene]) return;
+        state.scene = scene;
+        state.step = 0;
+        render(updateHash);
+        schedule();
+      }
+      function move(delta) {
+        var len = stories[state.scene].length;
+        state.step = (state.step + delta + len) % len;
+        render(false);
+      }
+      tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () { setScene(tab.dataset.scene, true); });
+      });
+      document.getElementById("previous").addEventListener("click", function () { move(-1); schedule(); });
+      document.getElementById("next").addEventListener("click", function () { move(1); schedule(); });
+      document.getElementById("reset").addEventListener("click", function () { state.step = 0; render(false); schedule(); });
+      play.addEventListener("click", function () { state.playing = !state.playing; render(false); schedule(); });
+      document.addEventListener("keydown", function (event) {
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === "BUTTON" || tag === "INPUT" || tag === "A") return;
+        if (event.key === "ArrowLeft") { event.preventDefault(); move(-1); schedule(); }
+        if (event.key === "ArrowRight") { event.preventDefault(); move(1); schedule(); }
+        if (event.key === " ") { event.preventDefault(); state.playing = !state.playing; render(false); schedule(); }
+        if (event.key === "r" || event.key === "R") { state.step = 0; render(false); schedule(); }
+        if (event.key === "1") setScene("jvm", true);
+        if (event.key === "2") setScene("jmm", true);
+        if (event.key === "3") setScene("gc", true);
+      });
+      var hashScene = window.location.hash.slice(1);
+      if (stories[hashScene]) state.scene = hashScene;
+      render(!hashScene);
+    }());
+  </script>
+</body>
+</html>

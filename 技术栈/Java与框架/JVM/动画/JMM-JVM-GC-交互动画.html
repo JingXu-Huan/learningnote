@@ -1,0 +1,1702 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="JMM、JVM 运行时数据区与 GC 的离线交互动画图">
+  <title>JMM · JVM · GC 交互动画图</title>
+  <style>
+    :root {
+      --navy: #071a38;
+      --navy-soft: #102a55;
+      --ink: #13213d;
+      --muted: #5d6b84;
+      --line: #d9e3f3;
+      --surface: #ffffff;
+      --paper: #f3f7ff;
+      --blue: #2b6df8;
+      --blue-pale: #e9f0ff;
+      --cyan: #1bbfbe;
+      --cyan-pale: #e2fbf8;
+      --purple: #8d63ee;
+      --purple-pale: #f0ebff;
+      --amber: #f5ad36;
+      --amber-pale: #fff5df;
+      --rose: #ed6775;
+      --rose-pale: #ffebed;
+      --green: #27a76a;
+      --green-pale: #e5f8ee;
+      --shadow: 0 18px 45px rgba(25, 55, 105, 0.12);
+      --radius: 22px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      min-width: 320px;
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(72, 143, 255, 0.17), transparent 26rem),
+        radial-gradient(circle at 90% 13%, rgba(119, 88, 238, 0.11), transparent 25rem),
+        var(--paper);
+      font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans CJK SC", system-ui, sans-serif;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(43, 109, 248, 0.36);
+      outline-offset: 3px;
+    }
+
+    .page {
+      width: min(1440px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+    }
+
+    .hero {
+      position: relative;
+      overflow: hidden;
+      padding: clamp(28px, 5vw, 58px);
+      color: #fff;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at 84% 20%, rgba(103, 238, 226, 0.22), transparent 18rem),
+        radial-gradient(circle at 72% 90%, rgba(115, 106, 255, 0.28), transparent 23rem),
+        linear-gradient(135deg, #071734, #112c5c);
+      box-shadow: var(--shadow);
+    }
+
+    .hero::after {
+      position: absolute;
+      top: -100px;
+      right: 8%;
+      width: 220px;
+      height: 220px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      content: "";
+    }
+
+    .eyebrow,
+    .visual-badge,
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      letter-spacing: 0.04em;
+    }
+
+    .eyebrow {
+      padding: 8px 12px;
+      color: #bdeeff;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(189, 238, 255, 0.25);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .hero h1 {
+      max-width: 850px;
+      margin: 18px 0 12px;
+      font-size: clamp(32px, 5vw, 58px);
+      line-height: 1.13;
+      letter-spacing: -0.04em;
+    }
+
+    .hero p {
+      max-width: 760px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: clamp(15px, 2vw, 18px);
+      line-height: 1.75;
+    }
+
+    .hero-footer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 18px;
+      align-items: center;
+      margin-top: 28px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 13px;
+    }
+
+    .hero-footer span::before {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: var(--cyan);
+      content: "";
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 24px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      min-height: 44px;
+      padding: 10px 16px;
+      color: var(--ink);
+      font-weight: 800;
+      border: 0;
+      border-radius: 12px;
+      background: #fff;
+      transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+    }
+
+    .button:hover {
+      box-shadow: 0 8px 22px rgba(0, 0, 0, 0.18);
+      transform: translateY(-1px);
+    }
+
+    .button.secondary {
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .button .button-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      font-size: 15px;
+      line-height: 1;
+    }
+
+    .motion-toggle {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      min-height: 44px;
+      padding: 10px 13px;
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.1);
+      user-select: none;
+    }
+
+    .motion-toggle input {
+      accent-color: var(--cyan);
+    }
+
+    .scene-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 24px 0 18px;
+      padding: 8px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.75);
+      box-shadow: 0 8px 26px rgba(46, 72, 124, 0.07);
+      backdrop-filter: blur(12px);
+    }
+
+    .scene-tab {
+      min-height: 58px;
+      padding: 10px 14px;
+      color: var(--muted);
+      font-weight: 800;
+      text-align: left;
+      border: 0;
+      border-radius: 12px;
+      background: transparent;
+      transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+    }
+
+    .scene-tab:hover {
+      color: var(--ink);
+      background: #f0f5ff;
+    }
+
+    .scene-tab[aria-selected="true"] {
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue), #527df5);
+      box-shadow: 0 9px 19px rgba(43, 109, 248, 0.24);
+    }
+
+    .scene-tab small {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0.8;
+    }
+
+    .scene {
+      animation: scene-in 260ms ease both;
+    }
+
+    .scene[hidden] {
+      display: none;
+    }
+
+    @keyframes scene-in {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .scene-intro {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 28px;
+      align-items: end;
+      justify-content: space-between;
+      margin: 24px 4px 14px;
+    }
+
+    .scene-title {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: -0.03em;
+    }
+
+    .scene-summary {
+      max-width: 580px;
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .visual-shell {
+      overflow: hidden;
+      border: 1px solid #cddcf3;
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .visual-topline {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 20px;
+      border-bottom: 1px solid #e6eef9;
+      background: linear-gradient(90deg, #fcfdff, #f1f6ff);
+    }
+
+    .visual-badge {
+      padding: 7px 10px;
+      color: #315377;
+      font-size: 12px;
+      font-weight: 800;
+      border-radius: 999px;
+      background: #dff1ff;
+    }
+
+    .visual-badge::before {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--blue);
+      content: "";
+    }
+
+    .visual-hint {
+      color: #65758c;
+      font-size: 13px;
+    }
+
+    .visual {
+      position: relative;
+      min-height: 470px;
+      padding: 10px 16px;
+      isolation: isolate;
+    }
+
+    .visual::before {
+      position: absolute;
+      z-index: -1;
+      inset: 0;
+      opacity: 0.72;
+      background-image: linear-gradient(rgba(61, 115, 201, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(61, 115, 201, 0.05) 1px, transparent 1px);
+      background-size: 26px 26px;
+      content: "";
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.65), transparent);
+    }
+
+    .visual svg {
+      display: block;
+      width: 100%;
+      min-width: 760px;
+      height: auto;
+      min-height: 430px;
+      overflow: visible;
+    }
+
+    .visual-scroll {
+      overflow-x: auto;
+    }
+
+    .visual-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px 18px;
+      padding: 12px 20px 18px;
+      color: #53657d;
+      font-size: 13px;
+      border-top: 1px solid #edf2f9;
+      background: #fbfdff;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      gap: 7px;
+      align-items: center;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .legend-dot.blue { background: var(--blue); }
+    .legend-dot.cyan { background: var(--cyan); }
+    .legend-dot.amber { background: var(--amber); }
+    .legend-dot.rose { background: var(--rose); }
+    .legend-dot.green { background: var(--green); }
+
+    .control-deck {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(270px, 0.9fr);
+      gap: 18px;
+      margin-top: 18px;
+    }
+
+    .step-card,
+    .concept-card {
+      padding: 22px;
+      border: 1px solid #d8e4f5;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 9px 24px rgba(34, 61, 109, 0.06);
+    }
+
+    .step-card {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .step-card::before {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      background: linear-gradient(90deg, var(--blue), var(--cyan), var(--purple));
+      content: "";
+    }
+
+    .step-meta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      color: #60718b;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .chip {
+      padding: 6px 10px;
+      color: #325886;
+      font-size: 12px;
+      font-weight: 800;
+      border-radius: 999px;
+      background: var(--blue-pale);
+    }
+
+    .step-card h3 {
+      margin: 12px 0 8px;
+      font-size: clamp(20px, 2.4vw, 27px);
+      letter-spacing: -0.025em;
+    }
+
+    .step-card p {
+      max-width: 760px;
+      margin: 0;
+      color: #52617a;
+      line-height: 1.75;
+    }
+
+    .code-caption {
+      margin: 16px 0 0;
+      padding: 10px 12px;
+      overflow-x: auto;
+      color: #24446c;
+      font-family: Consolas, "Cascadia Code", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      border: 1px solid #d7e6fa;
+      border-radius: 10px;
+      background: #f3f8ff;
+    }
+
+    .step-navigation {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .button.small {
+      min-height: 38px;
+      padding: 8px 13px;
+      color: #244d8f;
+      font-size: 14px;
+      border: 1px solid #cbdcf4;
+      background: #f8fbff;
+    }
+
+    .button.small:hover {
+      background: #edf4ff;
+      box-shadow: none;
+    }
+
+    .progress {
+      flex: 1 1 160px;
+      height: 8px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e4ecf8;
+    }
+
+    .progress span {
+      display: block;
+      width: 25%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--blue), var(--cyan));
+      transition: width 260ms ease;
+    }
+
+    .concept-card h3 {
+      margin: 0 0 12px;
+      font-size: 17px;
+    }
+
+    .concept-card ul {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .concept-card li {
+      position: relative;
+      padding-left: 20px;
+      color: #52617a;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .concept-card li::before {
+      position: absolute;
+      top: 0.53em;
+      left: 0;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--purple);
+      content: "";
+    }
+
+    .truth-note {
+      margin: 18px 0 0;
+      padding: 16px 18px;
+      color: #4f5e76;
+      line-height: 1.7;
+      border: 1px solid #cbdcf4;
+      border-radius: 14px;
+      background: rgba(234, 243, 255, 0.78);
+    }
+
+    .truth-note strong {
+      color: #203f70;
+    }
+
+    /* SVG visual language */
+    .svg-label {
+      fill: #70809a;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .svg-title {
+      fill: #18335e;
+      font-size: 23px;
+      font-weight: 800;
+    }
+
+    .svg-small {
+      fill: #59708e;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .svg-mini {
+      fill: #788aa2;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .svg-mono {
+      fill: #2b517e;
+      font-family: Consolas, "Cascadia Code", monospace;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .zone {
+      transition: filter 300ms ease, opacity 300ms ease, transform 300ms ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .zone rect,
+    .node-box {
+      stroke-width: 2;
+      transition: fill 280ms ease, stroke 280ms ease, filter 280ms ease;
+    }
+
+    .flow-line,
+    .guide-line {
+      fill: none;
+      stroke-linecap: round;
+    }
+
+    .guide-line {
+      stroke: #bfcee5;
+      stroke-width: 2;
+      stroke-dasharray: 5 8;
+    }
+
+    .flow-line {
+      opacity: 0;
+      stroke-width: 5;
+      stroke-dasharray: 10 12;
+      stroke-dashoffset: 0;
+      transition: opacity 260ms ease;
+    }
+
+    .flow-blue { stroke: var(--blue); }
+    .flow-cyan { stroke: var(--cyan); }
+    .flow-purple { stroke: var(--purple); }
+    .flow-amber { stroke: var(--amber); }
+    .flow-rose { stroke: var(--rose); }
+    .flow-green { stroke: var(--green); }
+
+    .flow-arrow {
+      marker-end: url(#arrow-blue);
+    }
+
+    .active-flow {
+      opacity: 1;
+      animation: flow-dash 1.05s linear infinite;
+    }
+
+    @keyframes flow-dash {
+      to {
+        stroke-dashoffset: -44;
+      }
+    }
+
+    .pulse-zone {
+      filter: drop-shadow(0 0 11px rgba(43, 109, 248, 0.32));
+      animation: zone-pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes zone-pulse {
+      50% {
+        transform: scale(1.018);
+      }
+    }
+
+    .state-token {
+      opacity: 0;
+      transition: opacity 220ms ease, transform 260ms ease;
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    .token-visible {
+      opacity: 1;
+      animation: token-pop 430ms ease both;
+    }
+
+    @keyframes token-pop {
+      from {
+        opacity: 0;
+        transform: scale(0.7);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    /* JMM */
+    .jmm-main rect { fill: #edf4ff; stroke: #8fb4ff; }
+    .jmm-thread-a rect { fill: #ecfbf9; stroke: #82d9d0; }
+    .jmm-thread-b rect { fill: #f4efff; stroke: #b69af4; }
+    .jmm-volatile rect { fill: #fff5df; stroke: #f2bf63; }
+
+    #jmmVisual[data-step="0"] .jmm-main,
+    #jmmVisual[data-step="0"] .jmm-thread-a,
+    #jmmVisual[data-step="1"] .jmm-thread-a,
+    #jmmVisual[data-step="2"] .jmm-main,
+    #jmmVisual[data-step="2"] .jmm-volatile,
+    #jmmVisual[data-step="3"] .jmm-main,
+    #jmmVisual[data-step="3"] .jmm-thread-b {
+      filter: drop-shadow(0 0 12px rgba(43, 109, 248, 0.24));
+    }
+
+    #jmmVisual[data-step="0"] .jmm-read-a,
+    #jmmVisual[data-step="1"] .jmm-write-a,
+    #jmmVisual[data-step="2"] .jmm-publish,
+    #jmmVisual[data-step="3"] .jmm-read-b,
+    #jmmVisual[data-step="3"] .jmm-hb {
+      opacity: 1;
+      animation: flow-dash 1.05s linear infinite;
+    }
+
+    #jmmVisual[data-step="0"] .token-read,
+    #jmmVisual[data-step="1"] .token-write,
+    #jmmVisual[data-step="2"] .token-ready,
+    #jmmVisual[data-step="3"] .token-seen {
+      opacity: 1;
+      animation: token-pop 430ms ease both;
+    }
+
+    #jmmVisual[data-step="1"] .token-before,
+    #jmmVisual[data-step="2"] .token-after,
+    #jmmVisual[data-step="3"] .token-after,
+    #jmmVisual[data-step="3"] .token-seen {
+      opacity: 1;
+    }
+
+    /* JVM */
+    .jvm-shared-outline {
+      fill: #f9fbff;
+      stroke: #c0d3f0;
+      stroke-width: 2;
+      stroke-dasharray: 7 8;
+    }
+
+    .jvm-method rect { fill: #f0ebff; stroke: #b79af8; }
+    .jvm-heap rect { fill: #e6f9f5; stroke: #7bd5c9; }
+    .jvm-pc rect { fill: #edf4ff; stroke: #8fb4ff; }
+    .jvm-stack rect { fill: #fff4df; stroke: #eec164; }
+    .jvm-native rect { fill: #ffedf0; stroke: #f0a5ae; }
+    .jvm-frame-main rect { fill: #fffdf7; stroke: #edc86d; }
+    .jvm-frame-work rect { fill: #fff5e5; stroke: #e9ad41; }
+    .jvm-object rect { fill: #dff5ef; stroke: #4fbe9e; }
+
+    #jvmVisual[data-step="0"] .jvm-method,
+    #jvmVisual[data-step="1"] .jvm-pc,
+    #jvmVisual[data-step="1"] .jvm-stack,
+    #jvmVisual[data-step="2"] .jvm-heap,
+    #jvmVisual[data-step="2"] .jvm-object,
+    #jvmVisual[data-step="3"] .jvm-pc,
+    #jvmVisual[data-step="3"] .jvm-stack,
+    #jvmVisual[data-step="3"] .jvm-frame-work,
+    #jvmVisual[data-step="4"] .jvm-stack,
+    #jvmVisual[data-step="4"] .jvm-frame-main {
+      filter: drop-shadow(0 0 12px rgba(43, 109, 248, 0.23));
+    }
+
+    #jvmVisual[data-step="0"] .jvm-class-load,
+    #jvmVisual[data-step="1"] .jvm-main-push,
+    #jvmVisual[data-step="2"] .jvm-new-object,
+    #jvmVisual[data-step="3"] .jvm-method-call,
+    #jvmVisual[data-step="4"] .jvm-return {
+      opacity: 1;
+      animation: flow-dash 1.05s linear infinite;
+    }
+
+    #jvmVisual[data-step="1"] .jvm-frame-main,
+    #jvmVisual[data-step="2"] .jvm-object,
+    #jvmVisual[data-step="3"] .jvm-frame-work,
+    #jvmVisual[data-step="4"] .jvm-return-tag {
+      opacity: 1;
+      animation: token-pop 430ms ease both;
+    }
+
+    #jvmVisual[data-step="4"] .jvm-frame-work {
+      opacity: 0.24;
+      filter: none;
+      transform: translateY(12px);
+    }
+
+    /* GC */
+    .gc-root rect { fill: #edf4ff; stroke: #8fb4ff; }
+    .gc-eden rect { fill: #fff7e7; stroke: #efc56d; }
+    .gc-survivor rect { fill: #e5f9f4; stroke: #7bd5c9; }
+    .gc-old rect { fill: #f0ebff; stroke: #b69af4; }
+    .gc-object rect { stroke-width: 2; }
+    .gc-object.live rect { fill: #e4f8ec; stroke: #52bd86; }
+    .gc-object.garbage rect { fill: #ffeaed; stroke: #ee7c89; }
+    .gc-object.mature rect { fill: #eee9ff; stroke: #9d7beb; }
+    .gc-object.future { opacity: 0; }
+    .gc-object.faded { opacity: 0.19; }
+    .gc-object.compacted { opacity: 0; }
+
+    #gcVisual[data-step="0"] .gc-eden,
+    #gcVisual[data-step="1"] .gc-eden,
+    #gcVisual[data-step="1"] .gc-root,
+    #gcVisual[data-step="2"] .gc-survivor,
+    #gcVisual[data-step="2"] .gc-old,
+    #gcVisual[data-step="3"] .gc-survivor,
+    #gcVisual[data-step="3"] .gc-old,
+    #gcVisual[data-step="4"] .gc-old {
+      filter: drop-shadow(0 0 12px rgba(39, 167, 106, 0.24));
+    }
+
+    #gcVisual[data-step="0"] .gc-alloc,
+    #gcVisual[data-step="1"] .gc-root-scan,
+    #gcVisual[data-step="2"] .gc-copy,
+    #gcVisual[data-step="2"] .gc-promote,
+    #gcVisual[data-step="3"] .gc-reclaim,
+    #gcVisual[data-step="4"] .gc-compact {
+      opacity: 1;
+      animation: flow-dash 1.05s linear infinite;
+    }
+
+    #gcVisual[data-step="1"] .gc-object.live,
+    #gcVisual[data-step="1"] .gc-object.garbage {
+      animation: token-pop 430ms ease both;
+    }
+
+    #gcVisual[data-step="2"] .gc-object.future,
+    #gcVisual[data-step="3"] .gc-object.future,
+    #gcVisual[data-step="4"] .gc-object.future {
+      opacity: 1;
+      animation: token-pop 430ms ease both;
+    }
+
+    #gcVisual[data-step="3"] .gc-object.garbage,
+    #gcVisual[data-step="4"] .gc-object.garbage {
+      opacity: 0.12;
+      transform: scale(0.82);
+    }
+
+    #gcVisual[data-step="4"] .gc-object.faded {
+      opacity: 0;
+      transform: translateX(-18px);
+    }
+
+    .callout {
+      opacity: 0;
+      transition: opacity 260ms ease, transform 260ms ease;
+      transform: translateY(6px);
+    }
+
+    .callout rect {
+      fill: #17396c;
+      stroke: rgba(255, 255, 255, 0.3);
+      stroke-width: 1;
+    }
+
+    .callout text {
+      fill: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    #jmmVisual[data-step="2"] .callout.jmm-callout,
+    #jmmVisual[data-step="3"] .callout.jmm-callout,
+    #jvmVisual[data-step="0"] .callout.jvm-callout,
+    #jvmVisual[data-step="2"] .callout.jvm-callout,
+    #gcVisual[data-step="1"] .callout.gc-callout,
+    #gcVisual[data-step="4"] .callout.gc-callout {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      color: #71819a;
+      font-size: 13px;
+      line-height: 1.7;
+      border-top: 1px solid #d8e3f3;
+    }
+
+    .footer code {
+      padding: 2px 5px;
+      color: #3b4e6d;
+      font-family: Consolas, "Cascadia Code", monospace;
+      border-radius: 4px;
+      background: #e9f0fa;
+    }
+
+    @media (max-width: 820px) {
+      .page {
+        width: min(100% - 20px, 1440px);
+        padding-top: 10px;
+      }
+
+      .hero {
+        padding: 28px 22px;
+        border-radius: 20px;
+      }
+
+      .scene-tabs {
+        grid-template-columns: 1fr;
+      }
+
+      .scene-tab {
+        min-height: 50px;
+      }
+
+      .control-deck {
+        grid-template-columns: 1fr;
+      }
+
+      .visual {
+        padding: 6px 10px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    body.reduced-motion *,
+    body.reduced-motion *::before,
+    body.reduced-motion *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">JAVA MEMORY LAB · 离线交互图</span>
+      <h1>JMM · JVM · GC<br>把三个容易混淆的“内存”概念拆开看</h1>
+      <p>点击上方主题、使用播放按钮或方向键，逐步观察线程同步、运行时数据区和对象回收的关键路径。所有动画都由本页面的 HTML、CSS 与 JavaScript 驱动，无需联网。</p>
+      <div class="controls" aria-label="动画控制">
+        <button id="playButton" class="button" type="button" aria-pressed="false">
+          <span class="button-icon" aria-hidden="true">▶</span>
+          <span id="playLabel">播放当前流程</span>
+        </button>
+        <button id="restartButton" class="button secondary" type="button">
+          <span class="button-icon" aria-hidden="true">↺</span>
+          从第一步重看
+        </button>
+        <label class="motion-toggle">
+          <input id="reducedMotion" type="checkbox">
+          减少动画
+        </label>
+      </div>
+      <div class="hero-footer">
+        <span>按 ← / → 切换步骤</span>
+        <span>按 1 / 2 / 3 切换主题</span>
+        <span>按空格播放或暂停</span>
+      </div>
+    </header>
+
+    <nav class="scene-tabs" role="tablist" aria-label="动画主题">
+      <button id="tab-jmm" class="scene-tab" type="button" role="tab" aria-controls="jmm" aria-selected="true" data-scene="jmm">
+        01 · Java 内存模型（JMM）
+        <small>可见性、有序性与 happens-before</small>
+      </button>
+      <button id="tab-jvm" class="scene-tab" type="button" role="tab" aria-controls="jvm" aria-selected="false" tabindex="-1" data-scene="jvm">
+        02 · JVM 运行时数据区
+        <small>线程私有与线程共享区域</small>
+      </button>
+      <button id="tab-gc" class="scene-tab" type="button" role="tab" aria-controls="gc" aria-selected="false" tabindex="-1" data-scene="gc">
+        03 · GC 垃圾回收
+        <small>Roots、存活、转移与回收</small>
+      </button>
+    </nav>
+
+    <section id="jmm" class="scene" role="tabpanel" aria-labelledby="tab-jmm">
+      <div class="scene-intro">
+        <div>
+          <h2 class="scene-title">JMM：让写入对另一个线程“有意义”</h2>
+          <p class="scene-summary">用一个 <code>value + volatile ready</code> 的安全发布示例，观察写入、同步与读取之间的 happens-before 关系。</p>
+        </div>
+        <span class="chip">规范层：JLS 第 17 章</span>
+      </div>
+
+      <div class="visual-shell">
+        <div class="visual-topline">
+          <span class="visual-badge">JMM 教学抽象，不是物理内存布局</span>
+          <span class="visual-hint">虚线流动表示当前步骤发生的同步/读写关系</span>
+        </div>
+        <div class="visual-scroll">
+          <div id="jmmVisual" class="visual" data-visual="jmm" data-step="0" role="img" aria-label="JMM 中线程 A 将 value 和 volatile ready 发布到主内存，线程 B 读取 ready 后看到 value 的流程图">
+            <svg viewBox="0 0 1180 450" aria-hidden="true">
+              <defs>
+                <marker id="arrow-blue" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+                  <path d="M 0 0 L 12 6 L 0 12 z" fill="#2b6df8"></path>
+                </marker>
+              </defs>
+
+              <text x="85" y="42" class="svg-label">线程私有（JMM 工作内存抽象）</text>
+              <text x="455" y="42" class="svg-label">共享变量交互位置（JMM 主内存抽象）</text>
+              <text x="865" y="42" class="svg-label">线程私有（JMM 工作内存抽象）</text>
+
+              <path class="guide-line" d="M 318 62 L 318 405"></path>
+              <path class="guide-line" d="M 862 62 L 862 405"></path>
+
+              <g class="zone jmm-thread-a">
+                <rect x="58" y="80" width="260" height="290" rx="22"></rect>
+                <text x="86" y="120" class="svg-title">线程 A</text>
+                <text x="86" y="149" class="svg-small">工作内存中的副本</text>
+                <rect x="84" y="178" width="205" height="68" rx="12" class="node-box" fill="#ffffff" stroke="#b7e6e0"></rect>
+                <text x="103" y="207" class="svg-mono">value = 0</text>
+                <text x="103" y="230" class="svg-mini">普通共享变量</text>
+                <rect x="84" y="266" width="205" height="68" rx="12" class="node-box" fill="#ffffff" stroke="#b7e6e0"></rect>
+                <text x="103" y="295" class="svg-mono">ready = false</text>
+                <text x="103" y="318" class="svg-mini">volatile 变量</text>
+                <g class="state-token token-read">
+                  <rect x="185" y="166" width="105" height="29" rx="14" fill="#dff5ef"></rect>
+                  <text x="201" y="186" class="svg-mini" fill="#187b5d">读到 value</text>
+                </g>
+                <g class="state-token token-before">
+                  <rect x="186" y="254" width="103" height="29" rx="14" fill="#dff5ef"></rect>
+                  <text x="197" y="274" class="svg-mini" fill="#187b5d">value = 42</text>
+                </g>
+                <g class="state-token token-write">
+                  <rect x="194" y="341" width="95" height="29" rx="14" fill="#fff0cb"></rect>
+                  <text x="208" y="361" class="svg-mini" fill="#9b6812">准备发布</text>
+                </g>
+              </g>
+
+              <g class="zone jmm-main">
+                <rect x="435" y="80" width="310" height="290" rx="22"></rect>
+                <text x="465" y="120" class="svg-title">主内存（模型）</text>
+                <text x="465" y="149" class="svg-small">共享变量的同步语义</text>
+                <rect x="465" y="180" width="250" height="68" rx="12" class="node-box" fill="#ffffff" stroke="#cadbfd"></rect>
+                <text x="488" y="209" class="svg-mono">value = 0 → 42</text>
+                <text x="488" y="232" class="svg-mini">先写 value</text>
+                <g class="zone jmm-volatile">
+                  <rect x="465" y="270" width="250" height="68" rx="12"></rect>
+                  <text x="488" y="299" class="svg-mono">volatile ready = true</text>
+                  <text x="488" y="322" class="svg-mini">发布边界 / 同步顺序</text>
+                </g>
+                <g class="state-token token-after">
+                  <rect x="560" y="345" width="155" height="28" rx="14" fill="#dfe9ff"></rect>
+                  <text x="577" y="365" class="svg-mini" fill="#2356a7">写入对后续读可见</text>
+                </g>
+              </g>
+
+              <g class="zone jmm-thread-b">
+                <rect x="862" y="80" width="260" height="290" rx="22"></rect>
+                <text x="890" y="120" class="svg-title">线程 B</text>
+                <text x="890" y="149" class="svg-small">工作内存中的副本</text>
+                <rect x="891" y="178" width="205" height="68" rx="12" class="node-box" fill="#ffffff" stroke="#dacff8"></rect>
+                <text x="910" y="207" class="svg-mono">ready = false</text>
+                <text x="910" y="230" class="svg-mini">先读取 volatile</text>
+                <rect x="891" y="266" width="205" height="68" rx="12" class="node-box" fill="#ffffff" stroke="#dacff8"></rect>
+                <text x="910" y="295" class="svg-mono">value = ?</text>
+                <text x="910" y="318" class="svg-mini">再读取 value</text>
+                <g class="state-token token-seen">
+                  <rect x="900" y="341" width="196" height="29" rx="14" fill="#e8e0ff"></rect>
+                  <text x="920" y="361" class="svg-mini" fill="#6040b0">ready=true，看到 value=42</text>
+                </g>
+              </g>
+
+              <path class="flow-line flow-blue jmm-read-a" d="M 435 204 C 388 204, 359 204, 318 204" marker-end="url(#arrow-blue)"></path>
+              <path class="flow-line flow-cyan jmm-write-a" d="M 285 232 C 347 244, 376 248, 465 213" marker-end="url(#arrow-blue)"></path>
+              <path class="flow-line flow-amber jmm-publish" d="M 285 300 C 346 340, 386 340, 465 302" marker-end="url(#arrow-blue)"></path>
+              <path class="flow-line flow-purple jmm-read-b" d="M 715 300 C 779 300, 806 241, 891 211" marker-end="url(#arrow-blue)"></path>
+              <path class="flow-line flow-purple jmm-hb" d="M 287 390 C 485 432, 702 432, 891 390" marker-end="url(#arrow-blue)"></path>
+
+              <g class="callout jmm-callout">
+                <rect x="379" y="392" width="421" height="35" rx="17"></rect>
+                <text x="404" y="415">volatile 写  happens-before  后续对同一变量的读</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="visual-legend" aria-label="JMM 图例">
+          <span class="legend-item"><i class="legend-dot blue"></i>普通读写</span>
+          <span class="legend-item"><i class="legend-dot amber"></i>volatile 发布</span>
+          <span class="legend-item"><i class="legend-dot purple"></i>后续 volatile 读取</span>
+          <span class="legend-item"><i class="legend-dot cyan"></i>线程 A 的工作副本</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="jvm" class="scene" role="tabpanel" aria-labelledby="tab-jvm" hidden>
+      <div class="scene-intro">
+        <div>
+          <h2 class="scene-title">JVM 运行时数据区：逻辑上的“数据归属”</h2>
+          <p class="scene-summary">沿着一次 <code>main() → work() → return</code> 调用，区分线程私有区域与整个 JVM 实例共享的区域。</p>
+        </div>
+        <span class="chip">规范层：JVMS 2.5 / 2.6</span>
+      </div>
+
+      <div class="visual-shell">
+        <div class="visual-topline">
+          <span class="visual-badge">JVMS 逻辑区域，HotSpot 可有不同实现</span>
+          <span class="visual-hint">对象引用能在栈帧中，对象本身逻辑上属于堆</span>
+        </div>
+        <div class="visual-scroll">
+          <div id="jvmVisual" class="visual" data-visual="jvm" data-step="0" role="img" aria-label="JVM 运行时数据区中方法区和堆为线程共享，程序计数器、虚拟机栈和本地方法栈为线程私有的流程图">
+            <svg viewBox="0 0 1180 520" aria-hidden="true">
+              <defs>
+                <marker id="arrow-jvm" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+                  <path d="M 0 0 L 12 6 L 0 12 z" fill="#2b6df8"></path>
+                </marker>
+              </defs>
+              <rect x="48" y="42" width="1084" height="205" rx="24" class="jvm-shared-outline"></rect>
+              <text x="76" y="78" class="svg-label">线程共享 · 同一 JVM 进程</text>
+
+              <g class="zone jvm-method">
+                <rect x="78" y="98" width="410" height="122" rx="20"></rect>
+                <text x="104" y="135" class="svg-title">方法区（逻辑概念）</text>
+                <text x="104" y="165" class="svg-small">类元数据 · 运行时常量池 · 方法字节码</text>
+                <text x="104" y="194" class="svg-mini">HotSpot JDK 8+：类元数据主要由 Metaspace 承载（本地内存）</text>
+              </g>
+
+              <g class="zone jvm-heap">
+                <rect x="545" y="98" width="557" height="122" rx="20"></rect>
+                <text x="572" y="135" class="svg-title">堆（Heap）</text>
+                <text x="572" y="165" class="svg-small">类实例与数组 · GC 主要管理的对象区域</text>
+                <text x="572" y="194" class="svg-mini">分代 / Region / TLAB 等都是具体 JVM 与收集器的实现细节</text>
+                <g class="zone jvm-object state-token">
+                  <rect x="908" y="125" width="158" height="67" rx="13"></rect>
+                  <text x="932" y="153" class="svg-mono">new User()</text>
+                  <text x="932" y="176" class="svg-mini">对象实例</text>
+                </g>
+              </g>
+
+              <text x="76" y="284" class="svg-label">线程 A 私有 · 方法执行时创建/销毁</text>
+
+              <g class="zone jvm-pc">
+                <rect x="78" y="306" width="210" height="158" rx="20"></rect>
+                <text x="102" y="341" class="svg-title">程序计数器</text>
+                <text x="102" y="371" class="svg-small">当前字节码指令位置</text>
+                <rect x="102" y="393" width="160" height="42" rx="10" class="node-box" fill="#ffffff" stroke="#c9dafe"></rect>
+                <text x="126" y="420" class="svg-mono">pc: #17 → #18</text>
+                <text x="102" y="451" class="svg-mini">执行 native 方法时值未规定</text>
+              </g>
+
+              <g class="zone jvm-stack">
+                <rect x="324" y="306" width="470" height="158" rx="20"></rect>
+                <text x="350" y="341" class="svg-title">虚拟机栈（Java VM Stack）</text>
+                <text x="350" y="370" class="svg-small">每次方法调用创建一个栈帧</text>
+                <g class="zone jvm-frame-main state-token">
+                  <rect x="352" y="388" width="177" height="50" rx="10"></rect>
+                  <text x="372" y="418" class="svg-mono">main() 栈帧</text>
+                </g>
+                <g class="zone jvm-frame-work state-token">
+                  <rect x="548" y="388" width="217" height="50" rx="10"></rect>
+                  <text x="568" y="418" class="svg-mono">work() 栈帧</text>
+                </g>
+                <text x="350" y="451" class="svg-mini">局部变量表 · 操作数栈 · 动态链接 · 返回信息</text>
+              </g>
+
+              <g class="zone jvm-native">
+                <rect x="830" y="306" width="272" height="158" rx="20"></rect>
+                <text x="856" y="341" class="svg-title">本地方法栈</text>
+                <text x="856" y="371" class="svg-small">native / JNI 调用支持</text>
+                <text x="856" y="402" class="svg-mini">具体实现可与其他栈合并</text>
+                <text x="856" y="432" class="svg-mini">同样可能抛出 SOE / OOME</text>
+              </g>
+
+              <path class="flow-line flow-purple jvm-class-load" d="M 284 80 C 294 93, 300 97, 324 98" marker-end="url(#arrow-jvm)"></path>
+              <path class="flow-line flow-blue jvm-main-push" d="M 427 270 C 427 302, 428 354, 428 390" marker-end="url(#arrow-jvm)"></path>
+              <path class="flow-line flow-cyan jvm-new-object" d="M 528 410 C 674 394, 823 270, 949 192" marker-end="url(#arrow-jvm)"></path>
+              <path class="flow-line flow-amber jvm-method-call" d="M 528 410 C 539 410, 545 410, 548 410" marker-end="url(#arrow-jvm)"></path>
+              <path class="flow-line flow-green jvm-return" d="M 744 449 C 678 490, 596 490, 506 449" marker-end="url(#arrow-jvm)"></path>
+
+              <g class="state-token jvm-return-tag">
+                <rect x="546" y="473" width="142" height="29" rx="14" fill="#e1f8ea"></rect>
+                <text x="572" y="493" class="svg-mini" fill="#19724d">work() 弹栈</text>
+              </g>
+
+              <g class="callout jvm-callout">
+                <rect x="336" y="18" width="504" height="34" rx="17"></rect>
+                <text x="356" y="40">“方法区”是规范概念；不要直接把它等同于永久代或 Metaspace</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="visual-legend" aria-label="JVM 图例">
+          <span class="legend-item"><i class="legend-dot purple"></i>线程共享：方法区 / 堆</span>
+          <span class="legend-item"><i class="legend-dot amber"></i>线程私有：栈帧</span>
+          <span class="legend-item"><i class="legend-dot blue"></i>程序计数器</span>
+          <span class="legend-item"><i class="legend-dot cyan"></i>对象实例</span>
+        </div>
+      </div>
+    </section>
+
+    <section id="gc" class="scene" role="tabpanel" aria-labelledby="tab-gc" hidden>
+      <div class="scene-intro">
+        <div>
+          <h2 class="scene-title">GC：从可达性判断，到腾出可用空间</h2>
+          <p class="scene-summary">这是便于入门的“经典代际”示意：先从 GC Roots 找存活对象，再复制、晋升或清理；实际收集器的区域布局和暂停点会不同。</p>
+        </div>
+        <span class="chip">实现层：以 HotSpot 为例</span>
+      </div>
+
+      <div class="visual-shell">
+        <div class="visual-topline">
+          <span class="visual-badge">经典代际模型示意，不等同于所有收集器</span>
+          <span class="visual-hint">绿色是可达对象；红色是不可达对象；紫色表示老年代对象</span>
+        </div>
+        <div class="visual-scroll">
+          <div id="gcVisual" class="visual" data-visual="gc" data-step="0" role="img" aria-label="对象分配到 Eden，GC 从 Roots 标记可达对象，将存活对象复制到 Survivor 或晋升到老年代并清理垃圾的流程图">
+            <svg viewBox="0 0 1180 500" aria-hidden="true">
+              <defs>
+                <marker id="arrow-gc" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
+                  <path d="M 0 0 L 12 6 L 0 12 z" fill="#27a76a"></path>
+                </marker>
+              </defs>
+
+              <g class="zone gc-root">
+                <rect x="55" y="42" width="210" height="88" rx="18"></rect>
+                <text x="81" y="78" class="svg-title">GC Roots</text>
+                <text x="81" y="105" class="svg-small">栈 / 静态字段 / JNI …</text>
+              </g>
+
+              <g class="zone gc-eden">
+                <rect x="55" y="177" width="430" height="250" rx="22"></rect>
+                <text x="83" y="216" class="svg-title">Eden</text>
+                <text x="83" y="244" class="svg-small">新对象通常优先在这里分配</text>
+
+                <g class="gc-object live">
+                  <rect x="87" y="281" width="116" height="63" rx="13"></rect>
+                  <text x="112" y="311" class="svg-mono">Order#1</text>
+                  <text x="112" y="333" class="svg-mini">可达</text>
+                </g>
+                <g class="gc-object garbage">
+                  <rect x="222" y="281" width="116" height="63" rx="13"></rect>
+                  <text x="247" y="311" class="svg-mono">Temp#2</text>
+                  <text x="247" y="333" class="svg-mini">不可达</text>
+                </g>
+                <g class="gc-object live">
+                  <rect x="357" y="281" width="98" height="63" rx="13"></rect>
+                  <text x="375" y="311" class="svg-mono">Cache#9</text>
+                  <text x="375" y="333" class="svg-mini">可达</text>
+                </g>
+                <text x="87" y="395" class="svg-mini">Eden 空间紧张 / 触发阈值 → Young GC</text>
+              </g>
+
+              <g class="zone gc-survivor">
+                <rect x="525" y="177" width="250" height="250" rx="22"></rect>
+                <text x="553" y="216" class="svg-title">Survivor</text>
+                <text x="553" y="244" class="svg-small">复制存活对象，年龄 +1</text>
+                <g class="gc-object live future">
+                  <rect x="556" y="291" width="186" height="65" rx="13"></rect>
+                  <text x="578" y="320" class="svg-mono">Order#1 · age 1</text>
+                  <text x="578" y="343" class="svg-mini">复制到一侧 Survivor</text>
+                </g>
+              </g>
+
+              <g class="zone gc-old">
+                <rect x="817" y="177" width="308" height="250" rx="22"></rect>
+                <text x="845" y="216" class="svg-title">Old Gen</text>
+                <text x="845" y="244" class="svg-small">长期存活或 Survivor 放不下</text>
+                <g class="gc-object mature future">
+                  <rect x="846" y="291" width="247" height="65" rx="13"></rect>
+                  <text x="866" y="320" class="svg-mono">Cache#9 · age ≥ threshold</text>
+                  <text x="866" y="343" class="svg-mini">晋升（promotion）</text>
+                </g>
+                <g class="gc-object garbage faded">
+                  <rect x="846" y="371" width="117" height="33" rx="10"></rect>
+                  <text x="865" y="393" class="svg-mini">old garbage</text>
+                </g>
+              </g>
+
+              <path class="flow-line flow-blue gc-alloc" d="M 29 304 C 40 304, 48 304, 55 304" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-green gc-root-scan" d="M 158 130 C 160 174, 142 220, 144 280" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-green gc-root-scan" d="M 190 130 C 267 188, 366 215, 403 280" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-cyan gc-copy" d="M 202 314 C 338 402, 414 396, 556 322" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-purple gc-promote" d="M 455 314 C 601 423, 709 421, 846 322" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-rose gc-reclaim" d="M 280 358 C 280 392, 280 408, 280 444" marker-end="url(#arrow-gc)"></path>
+              <path class="flow-line flow-amber gc-compact" d="M 1088 388 C 1045 388, 1010 388, 966 388" marker-end="url(#arrow-gc)"></path>
+
+              <g class="callout gc-callout">
+                <rect x="302" y="53" width="516" height="34" rx="17"></rect>
+                <text x="327" y="75">可达性分析：从 Roots 出发找得到的对象才是存活对象</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="visual-legend" aria-label="GC 图例">
+          <span class="legend-item"><i class="legend-dot green"></i>从 Roots 可达</span>
+          <span class="legend-item"><i class="legend-dot rose"></i>不可达，可被回收</span>
+          <span class="legend-item"><i class="legend-dot cyan"></i>复制到 Survivor</span>
+          <span class="legend-item"><i class="legend-dot amber"></i>整理 / 压缩</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="control-deck" aria-label="当前动画步骤说明">
+      <article class="step-card">
+        <div class="step-meta">
+          <span id="stepIndex">步骤 1 / 4</span>
+          <span id="stepChip" class="chip">可见性</span>
+        </div>
+        <h3 id="stepTitle">读取共享变量</h3>
+        <p id="stepDescription">线程 A 先把共享变量 value 的当前值读入自己的工作内存副本。JMM 用这套抽象描述多线程读写必须遵守的可见性规则。</p>
+        <div id="codeCaption" class="code-caption">A: read value → working copy</div>
+        <div class="step-navigation">
+          <button id="previousStep" class="button small" type="button">← 上一步</button>
+          <div class="progress" aria-label="当前步骤进度"><span id="progressFill"></span></div>
+          <button id="nextStep" class="button small" type="button">下一步 →</button>
+        </div>
+      </article>
+
+      <aside class="concept-card">
+        <h3 id="conceptTitle">看图时记住</h3>
+        <ul id="conceptList">
+          <li>JMM 的主内存 / 工作内存是并发语义模型。</li>
+          <li>它不等于 JVM 堆 / 栈，也不等于 CPU 缓存的真实布局。</li>
+          <li><code>volatile</code> 不会把 <code>count++</code> 变成原子操作。</li>
+        </ul>
+      </aside>
+    </section>
+
+    <aside class="truth-note">
+      <strong>避免混淆：</strong>JMM 解决“线程如何正确观察彼此的读写”；JVM 运行时数据区说明“规范上数据逻辑归属哪里”；GC 则是 JVM 实现如何识别不可达对象并回收空间。三者相关，但并不是同一张内存布局图。
+    </aside>
+
+    <footer class="footer">
+      本页面是学习用的概念动画：GC 面板采用经典代际模型，实际 HotSpot 收集器（如 G1、ZGC）有不同的 Region 布局、并发阶段和暂停行为。打开本地文件即可使用；可通过地址栏的 <code>#jmm</code>、<code>#jvm</code>、<code>#gc</code> 直接定位主题。
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var scenes = {
+        jmm: {
+          title: "JMM：让写入对另一个线程“有意义”",
+          steps: [
+            {
+              chip: "可见性",
+              title: "读取共享变量",
+              description: "线程 A 先把共享变量 value 的当前值读入自己的工作内存副本。JMM 用这套抽象描述多线程读写必须遵守的可见性规则。",
+              code: "A: read value → working copy",
+              concepts: [
+                "JMM 的主内存 / 工作内存是并发语义模型。",
+                "它不等于 JVM 堆 / 栈，也不等于 CPU 缓存的真实布局。",
+                "没有同步关系时，线程 B 不保证立刻看到线程 A 的普通写。"
+              ]
+            },
+            {
+              chip: "普通写入",
+              title: "在线程 A 中先写入 value",
+              description: "线程 A 执行 value = 42。仅这一条普通写入并不会自动建立“线程 B 此刻一定能看到 42”的同步保证。",
+              code: "A: value = 42;   // normal write",
+              concepts: [
+                "单线程内遵守程序顺序；跨线程是否可观察，需要看 happens-before。",
+                "编译器和处理器可以在不破坏单线程语义的范围内重排序。",
+                "复合操作（例如 count++）不是一个不可分割的原子动作。"
+              ]
+            },
+            {
+              chip: "发布 / 有序性",
+              title: "volatile 写作为发布边界",
+              description: "线程 A 再执行 volatile ready = true。对同一 volatile 变量的这次写，会与线程 B 后续读取 ready 建立 happens-before；此前对 value 的写也因此对 B 可见。",
+              code: "A: value = 42; ready = true;   // ready is volatile",
+              concepts: [
+                "volatile 写 → 后续对同一 volatile 变量的读，构成 happens-before。",
+                "这提供可见性与排序约束，但不提供多个线程之间的互斥。",
+                "安全发布需要保证消费者先观察到 ready，再读取 value。"
+              ]
+            },
+            {
+              chip: "happens-before",
+              title: "线程 B 先读 ready，再读 value",
+              description: "线程 B 观察到 ready == true 后，再读取 value，能够看到线程 A 在发布前写入的 42。这是由 happens-before 的传递性保证的，不是“碰巧刷新了缓存”。",
+              code: "B: if (ready) { use(value); }   // sees 42",
+              concepts: [
+                "volatile 适合状态标志、一次性发布等场景。",
+                "若需要 read-modify-write 原子性，请使用锁或 AtomicInteger 等并发工具。",
+                "synchronized 同时提供互斥、可见性和有序性。"
+              ]
+            }
+          ]
+        },
+        jvm: {
+          title: "JVM 运行时数据区：逻辑上的“数据归属”",
+          steps: [
+            {
+              chip: "类加载",
+              title: "类信息进入方法区（逻辑概念）",
+              description: "类被加载后，类元数据、运行时常量池和方法相关信息属于 JVMS 中的方法区范畴。JDK 8+ 的 HotSpot 主要用本地内存中的 Metaspace 承载类元数据。",
+              code: "ClassLoader → class metadata / runtime constant pool",
+              concepts: [
+                "方法区是 JVM 规范里的逻辑概念。",
+                "永久代是旧版 HotSpot 的一种实现；JDK 8 已移除。",
+                "Metaspace 也不能被简单画成“Java 堆的一块”。"
+              ]
+            },
+            {
+              chip: "方法调用",
+              title: "main() 栈帧压入虚拟机栈",
+              description: "执行 Java 方法时，线程 A 的虚拟机栈会创建 main() 栈帧；PC 记录当前执行到的字节码位置。栈帧包含局部变量表、操作数栈等结构。",
+              code: "Thread A: push main() frame; pc = current bytecode",
+              concepts: [
+                "程序计数器、虚拟机栈和本地方法栈通常是线程私有的。",
+                "深递归或栈帧过大可能导致 StackOverflowError。",
+                "请求新栈空间失败也可能导致 OutOfMemoryError。"
+              ]
+            },
+            {
+              chip: "对象分配",
+              title: "new User() 的对象逻辑上位于堆",
+              description: "main() 栈帧里可以保存 User 的引用；对象实例与数组逻辑上属于堆。实际 HotSpot 可能结合 TLAB、逃逸分析、标量替换等优化，具体布局不必与示意图完全一致。",
+              code: "User user = new User();   // reference in frame → object in heap",
+              concepts: [
+                "“栈里存对象、堆里存成员变量”的说法不正确。",
+                "更准确地说：栈帧保存局部变量和引用，对象逻辑上在堆。",
+                "对象是否实际分配到堆上属于 JVM 优化实现细节。"
+              ]
+            },
+            {
+              chip: "嵌套调用",
+              title: "调用 work()：新栈帧入栈",
+              description: "main() 调用 work() 时，会在同一线程的虚拟机栈上再压入 work() 栈帧；方法栈的后进先出结构正是调用链和递归的基础。",
+              code: "main() → push work() frame → execute",
+              concepts: [
+                "每个线程都有自己的虚拟机栈，栈帧不会被其他线程直接共享。",
+                "同一时刻，栈顶帧是当前正在执行的方法。",
+                "native 调用的栈实现则由 JVM 具体实现决定。"
+              ]
+            },
+            {
+              chip: "方法返回",
+              title: "work() 结束后弹栈",
+              description: "work() 正常返回或异常处理结束后，它的栈帧被销毁，控制权回到 main() 的下一条指令。只要 main() 仍持有 User 引用，该对象就可能继续可达。",
+              code: "return → pop work() frame → resume main()",
+              concepts: [
+                "栈帧销毁不等于堆对象立刻被回收。",
+                "GC 依据从 GC Roots 出发的可达性，而不是“方法返回”这个单一事件。",
+                "是否回收、何时回收由 JVM 与收集器决定。"
+              ]
+            }
+          ]
+        },
+        gc: {
+          title: "GC：从可达性判断，到腾出可用空间",
+          steps: [
+            {
+              chip: "分配",
+              title: "新对象进入 Eden（示意）",
+              description: "在经典代际模型中，新对象通常优先在年轻代的 Eden 分配。不同收集器的具体布局不同；例如 G1 使用许多可扮演不同角色的 Region。",
+              code: "allocate → Eden / TLAB (collector-dependent)",
+              concepts: [
+                "Eden、Survivor、Old 是常见的代际实现模型，不是 JVMS 的强制分区。",
+                "对象分配失败、内存压力或阈值可能触发一次收集。",
+                "不要把这张图当作所有收集器的真实物理布局。"
+              ]
+            },
+            {
+              chip: "可达性分析",
+              title: "从 GC Roots 标记存活对象",
+              description: "GC 从活动线程栈和寄存器中的引用、静态字段、JNI 引用以及 JVM 内部结构等 GC Roots 出发，能沿引用链找到的对象才是存活对象。",
+              code: "GC Roots → traverse references → mark reachable",
+              concepts: [
+                "主流 HotSpot 的垃圾判定核心是可达性分析，而不是简单引用计数。",
+                "循环引用的对象，只要整体从 Roots 不可达，依然可以被回收。",
+                "并发收集器也会有需要短暂停顿应用线程的阶段；STW 不等于整个 GC 都暂停。"
+              ]
+            },
+            {
+              chip: "复制 / 晋升",
+              title: "存活对象转移到 Survivor 或 Old",
+              description: "年轻代收集常用复制思路：存活对象被复制到 Survivor，年龄增长；达到阈值或 Survivor 放不下时，可能晋升到老年代。对象移动后，JVM 需要正确更新或修正引用。",
+              code: "live → Survivor (age +1)  |  long-lived → Old",
+              concepts: [
+                "复制可让存活对象紧凑排列，避免年轻代碎片。",
+                "晋升阈值和空间担保属于收集器实现策略。",
+                "对象会移动，所以不能把 Java 对象地址当成稳定业务标识。"
+              ]
+            },
+            {
+              chip: "回收",
+              title: "不可达对象的空间被回收",
+              description: "Temp#2 不可从 Roots 到达，因此它的空间可以在收集中回收。常见实现会结合清扫、复制和压缩/整理；不同收集器的停顿、并发和屏障策略不同。",
+              code: "unreachable → reclaim / sweep / compact",
+              concepts: [
+                "“回收”不必等于立刻把内存还给操作系统，而是先回到 JVM 可分配空间。",
+                "Soft / Weak / Phantom Reference 有各自的引用处理语义，不能代替显式资源关闭。",
+                "文件、连接等外部资源应使用 try-with-resources 等机制明确释放。"
+              ]
+            },
+            {
+              chip: "老年代压力",
+              title: "必要时回收老年代并整理空间",
+              description: "老年代压力较高时，收集器可能选择老年代回收、Mixed GC 或在极端情况下 Full GC。Major GC、Full GC 的术语和覆盖范围依收集器而变，不能简单视为同义词。",
+              code: "old pressure → collector-specific old / mixed / full collection",
+              concepts: [
+                "G1 的正常周期包含 Young、并发标记与 Mixed GC 等阶段。",
+                "并发收集器不表示没有停顿，只是把大量工作与应用并发执行。",
+                "排障时以 GC 日志、JFR 和实际启动参数为准，不要只凭术语推断。"
+              ]
+            }
+          ]
+        }
+      };
+
+      var state = {
+        scene: "jmm",
+        step: 0,
+        playing: false,
+        timer: null
+      };
+
+      var tabButtons = Array.prototype.slice.call(document.querySelectorAll("[data-scene]"));
+      var scenesElements = Array.prototype.slice.call(document.querySelectorAll(".scene"));
+      var playButton = document.getElementById("playButton");
+      var playLabel = document.getElementById("playLabel");
+      var restartButton = document.getElementById("restartButton");
+      var reducedMotion = document.getElementById("reducedMotion");
+      var previousButton = document.getElementById("previousStep");
+      var nextButton = document.getElementById("nextStep");
+      var stepIndex = document.getElementById("stepIndex");
+      var stepChip = document.getElementById("stepChip");
+      var stepTitle = document.getElementById("stepTitle");
+      var stepDescription = document.getElementById("stepDescription");
+      var codeCaption = document.getElementById("codeCaption");
+      var conceptTitle = document.getElementById("conceptTitle");
+      var conceptList = document.getElementById("conceptList");
+      var progressFill = document.getElementById("progressFill");
+
+      function clearTimer() {
+        if (state.timer !== null) {
+          window.clearTimeout(state.timer);
+          state.timer = null;
+        }
+      }
+
+      function scheduleNext() {
+        clearTimer();
+        if (!state.playing || reducedMotion.checked) {
+          return;
+        }
+        state.timer = window.setTimeout(function () {
+          moveStep(1);
+          scheduleNext();
+        }, 3900);
+      }
+
+      function currentData() {
+        return scenes[state.scene];
+      }
+
+      function render(updateHash) {
+        var sceneData = currentData();
+        var stepData = sceneData.steps[state.step];
+        var percent = ((state.step + 1) / sceneData.steps.length) * 100;
+
+        scenesElements.forEach(function (element) {
+          var active = element.id === state.scene;
+          element.hidden = !active;
+          element.setAttribute("aria-hidden", String(!active));
+        });
+
+        tabButtons.forEach(function (button) {
+          var active = button.dataset.scene === state.scene;
+          button.setAttribute("aria-selected", String(active));
+          button.tabIndex = active ? 0 : -1;
+        });
+
+        Array.prototype.slice.call(document.querySelectorAll("[data-visual]")).forEach(function (visual) {
+          visual.dataset.step = visual.dataset.visual === state.scene ? String(state.step) : "0";
+        });
+
+        stepIndex.textContent = "步骤 " + (state.step + 1) + " / " + sceneData.steps.length;
+        stepChip.textContent = stepData.chip;
+        stepTitle.textContent = stepData.title;
+        stepDescription.textContent = stepData.description;
+        codeCaption.textContent = stepData.code;
+        conceptTitle.textContent = "看图时记住";
+        conceptList.innerHTML = "";
+        stepData.concepts.forEach(function (concept) {
+          var item = document.createElement("li");
+          item.textContent = concept;
+          conceptList.appendChild(item);
+        });
+        progressFill.style.width = percent + "%";
+        playLabel.textContent = state.playing ? "暂停当前流程" : "播放当前流程";
+        playButton.setAttribute("aria-pressed", String(state.playing));
+        playButton.querySelector(".button-icon").textContent = state.playing ? "Ⅱ" : "▶";
+
+        if (updateHash) {
+          window.history.replaceState(null, "", "#" + state.scene);
+        }
+      }
+
+      function setScene(sceneId, updateHash) {
+        if (!scenes[sceneId]) {
+          return;
+        }
+        state.scene = sceneId;
+        state.step = 0;
+        render(updateHash);
+        scheduleNext();
+      }
+
+      function moveStep(delta) {
+        var total = currentData().steps.length;
+        state.step = (state.step + delta + total) % total;
+        render(false);
+      }
+
+      function togglePlay() {
+        if (reducedMotion.checked) {
+          reducedMotion.checked = false;
+          document.body.classList.remove("reduced-motion");
+        }
+        state.playing = !state.playing;
+        render(false);
+        scheduleNext();
+      }
+
+      tabButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          setScene(button.dataset.scene, true);
+        });
+
+        button.addEventListener("keydown", function (event) {
+          var index = tabButtons.indexOf(button);
+          if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            event.preventDefault();
+            tabButtons[(index + 1) % tabButtons.length].focus();
+          }
+          if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            event.preventDefault();
+            tabButtons[(index - 1 + tabButtons.length) % tabButtons.length].focus();
+          }
+        });
+      });
+
+      playButton.addEventListener("click", togglePlay);
+
+      restartButton.addEventListener("click", function () {
+        state.step = 0;
+        render(false);
+        scheduleNext();
+      });
+
+      previousButton.addEventListener("click", function () {
+        moveStep(-1);
+        scheduleNext();
+      });
+
+      nextButton.addEventListener("click", function () {
+        moveStep(1);
+        scheduleNext();
+      });
+
+      reducedMotion.addEventListener("change", function () {
+        document.body.classList.toggle("reduced-motion", reducedMotion.checked);
+        if (reducedMotion.checked) {
+          state.playing = false;
+        }
+        render(false);
+        scheduleNext();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        var tag = document.activeElement && document.activeElement.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON" || tag === "A") {
+          return;
+        }
+        if (event.key === "ArrowLeft") {
+          event.preventDefault();
+          moveStep(-1);
+          scheduleNext();
+        } else if (event.key === "ArrowRight") {
+          event.preventDefault();
+          moveStep(1);
+          scheduleNext();
+        } else if (event.key === " ") {
+          event.preventDefault();
+          togglePlay();
+        } else if (event.key === "1") {
+          setScene("jmm", true);
+        } else if (event.key === "2") {
+          setScene("jvm", true);
+        } else if (event.key === "3") {
+          setScene("gc", true);
+        }
+      });
+
+      window.addEventListener("hashchange", function () {
+        var requested = window.location.hash.slice(1);
+        if (scenes[requested] && requested !== state.scene) {
+          setScene(requested, false);
+        }
+      });
+
+      var requestedScene = window.location.hash.slice(1);
+      if (scenes[requestedScene]) {
+        state.scene = requestedScene;
+      }
+
+      if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        reducedMotion.checked = true;
+        document.body.classList.add("reduced-motion");
+      }
+
+      render(!requestedScene);
+    }());
+  </script>
+</body>
+</html>
