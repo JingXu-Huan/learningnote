@@ -109,7 +109,7 @@
 ```java
 @Mapper(componentModel = "spring")
 public interface UserMapper {
-    //这里的mappinngs表示我们在DO和DTO之间有多个属性名不能对应
+    //这里的Mappings表示DO和DTO之间有多个属性名不能直接对应
     @Mappings({
             @Mapping(source = "myFollows",target = "follows"),
             @Mapping(source = "myLikes", target = "likes",qualifiedByName = "myCover")
@@ -146,7 +146,7 @@ public class Controller {
 }
 ```
 
-## 什么时候，`mpstruct`它不能为你自动封装呢😕？
+## 什么时候，`MapStruct` 不能为你自动映射呢😕？
 
 | 源类型                | 目标类型       | 自动支持 | 说明                                                         |
 | --------------------- | -------------- | -------- | ------------------------------------------------------------ |
@@ -174,3 +174,113 @@ public class Controller {
 | 数组 A[]                          | A[]                                     | ✅        | 相同类型可直接复制              |
 | 对象                              | 对象                                    | ✅        | 字段名和类型匹配时自动映射      |
 | Map<K,V>                          | Map<K,V>                                | ✅        | 仅限简单映射（K、V 类型可对应） |
+
+## 工程实践：让映射失败得更早
+
+### 1. 对关键 DTO 开启严格检查
+
+默认情况下，目标对象中没有被映射的属性可能只产生警告。对于核心接口，建议把遗漏字段直接变成编译错误：
+
+```java
+@Mapper(
+    componentModel = "spring",
+    unmappedTargetPolicy = ReportingPolicy.ERROR,
+    injectionStrategy = InjectionStrategy.CONSTRUCTOR
+)
+public interface UserMapper {
+    UserVO toVO(UserDO source);
+}
+```
+
+也可以在 `MapperConfig` 中统一配置，避免每个 Mapper 重复编写：
+
+```java
+@MapperConfig(
+    componentModel = "spring",
+    unmappedTargetPolicy = ReportingPolicy.ERROR,
+    injectionStrategy = InjectionStrategy.CONSTRUCTOR
+)
+public interface CentralMapperConfig {
+}
+
+@Mapper(config = CentralMapperConfig.class)
+public interface UserMapper {
+    UserVO toVO(UserDO source);
+}
+```
+
+### 2. 更新已有对象时使用 `@MappingTarget`
+
+`toVO` 适合创建新对象；更新已有对象时不要手动复制一遍字段，可以使用 `@MappingTarget`：
+
+```java
+@Mapper(componentModel = "spring")
+public interface UserMapper {
+    void update(@MappingTarget UserDO target, UserUpdateDTO source);
+}
+```
+
+如果更新接口只允许修改请求中明确传入的字段，可以忽略 `null`：
+
+```java
+@BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
+void update(@MappingTarget UserDO target, UserUpdateDTO source);
+```
+
+注意：`IGNORE` 只是不覆盖目标对象已有值，不等于把 `null` 转成空字符串，也不等于忽略空集合。是否允许清空字段，要通过接口语义明确区分。
+
+### 3. 把复杂转换拆成可复用方法
+
+不要在 `expression = "java(...)"` 中堆积业务逻辑。可以把日期、枚举、金额和脱敏等转换放到独立类中：
+
+```java
+public class MappingHelper {
+    public String maskPhone(String phone) {
+        if (phone == null || phone.length() < 7) return phone;
+        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+}
+
+@Mapper(componentModel = "spring", uses = MappingHelper.class)
+public interface UserMapper {
+    @Mapping(source = "phone", target = "maskedPhone")
+    UserVO toVO(UserDO source);
+}
+```
+
+如果转换方法需要注入 Spring Service，可以让 `uses` 指向 Spring Bean，并优先使用构造器注入，避免生成类的依赖不清晰。
+
+### 4. 处理枚举演进
+
+枚举新增值时，映射代码可能仍然可以编译，但业务含义已经发生变化。对重要枚举可以显式设置未知值策略，或为每个枚举值写映射：
+
+```java
+@ValueMappings({
+    @ValueMapping(source = "ACTIVE", target = "ENABLED"),
+    @ValueMapping(source = "INACTIVE", target = "DISABLED"),
+    @ValueMapping(source = MappingConstants.ANY_REMAINING, target = "UNKNOWN")
+})
+UserStatusVO toVO(UserStatus status);
+```
+
+### 5. MapStruct 与 Lombok 一起使用时
+
+- `mapstruct-processor` 和 `lombok` 都要作为 annotation processor 配置；
+- IDE 能编译不代表 Maven 一定能编译，优先执行 `mvn clean compile` 验证；
+- 如果使用 Lombok 的 Builder、`@SuperBuilder` 或链式 setter，重点检查生成类是否被 MapStruct 识别；
+- MapStruct 是编译期生成代码，问题应先查看 `target/generated-sources/annotations` 下的实现类，而不是猜运行时反射行为。
+
+## 常见问题排查
+
+| 现象 | 常见原因 | 排查方向 |
+|------|------|------|
+| 找不到 `UserMapper` Bean | 未配置 `componentModel = "spring"` 或未启用注解处理 | 检查生成类和 Spring 扫描范围 |
+| 字段没有赋值 | 字段名、类型或 getter/setter 不匹配 | 查看生成的 `UserMapperImpl` |
+| Lombok 字段识别不到 | annotation processor 配置或版本不一致 | 执行 `mvn clean compile`，检查 `pom.xml` |
+| `null` 把原值覆盖了 | 使用了默认空值策略 | 更新方法增加 `NullValuePropertyMappingStrategy.IGNORE` |
+| 映射了懒加载关联对象 | 映射过程中触发 ORM 访问 | 在事务边界内处理，或先构造查询 DTO |
+| 编译时出现未映射属性 | 严格策略发现了新字段 | 显式 `@Mapping`，不要随意改成 `IGNORE` |
+
+## 一句话总结
+
+> MapStruct 的价值不只是少写 setter，更重要的是把对象转换逻辑提前到编译期检查；对核心接口开启严格映射，对复杂转换拆成可测试的方法。

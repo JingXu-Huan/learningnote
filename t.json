@@ -1,0 +1,120 @@
+{
+    "partnerOrderId": "1130345780708469",
+    "crowdType": null,
+    "expireTime": "2026-07-10 04:28:30",
+    "currentTime": "2026-07-10 03:58:30",
+    "openSaleTime": "2026-06-26 16:30:00",
+    "agentCode": "000002490",
+    "agentName": "武汉景君（电子支付值班）",
+    "contactMobile": "156****3546",
+    "orderTicketType": 1,
+    "isElePay": 1,
+    "isCreditPay": 0,
+    "deductResult": 1,
+    "ticketList": [
+        {
+            "deliveryTicketId": 293433156,
+            "fromStationName": "常德",
+            "toStationName": "长沙",
+            "trainNumber": "C7751",
+            "departTime": "2026-07-10 22:22",
+            "arriveTime": "2026-07-10 23:22:00",
+            "ticketCount": 2,
+            "ticketPrice": 94.00,
+            "seatName": "二等座",
+            "acceptSeatName": [
+                "二等座",
+                "卧代二等座"
+            ],
+            "acceptSeatRemark": "",
+            "selectedSeat": "1D,1F",
+            "seatNeed": null,
+            "ticketType": 1,
+            "fromStationCode": "VGQ",
+            "toStationCode": "CSQ",
+            "passengerList": [
+                {
+                    "passengerName": "杨佳妮",
+                    "passengerType": 1,
+                    "passportTypeName": "身份证",
+                    "passportType": 1,
+                    "passportNumber": "410928200909156962",
+                    "passengerId": 433373918,
+                    "regionCode": "CHN",
+                    "mobilePhone": "156****3546",
+                    "birthday": "2009-09-15",
+                    "passportExpireDate": "",
+                    "countryName": "中国"
+                },
+                {
+                    "passengerName": "白春悦",
+                    "passengerType": 1,
+                    "passportTypeName": "身份证",
+                    "passportType": 1,
+                    "passportNumber": "130535200909212826",
+                    "passengerId": 433373919,
+                    "regionCode": "CHN",
+                    "mobilePhone": "183****1535",
+                    "birthday": "2009-09-21",
+                    "passportExpireDate": "",
+                    "countryName": "中国"
+                }
+            ]
+        },
+        {
+            "deliveryTicketId": 293433157,
+            "fromStationName": "长沙南",
+            "toStationName": "濮阳东",
+            "trainNumber": "G2078",
+            "departTime": "2026-07-11 10:29",
+            "arriveTime": "2026-07-11 15:38:00",
+            "ticketCount": 2,
+            "ticketPrice": 780.00,
+            "seatName": "一等座",
+            "acceptSeatName": [
+                "一等座",
+                "卧代一等座"
+            ],
+            "acceptSeatRemark": "",
+            "selectedSeat": "1D,1F",
+            "seatNeed": null,
+            "ticketType": 2,
+            "fromStationCode": "CWQ",
+            "toStationCode": "PUF",
+            "passengerList": [
+                {
+                    "passengerName": "杨佳妮",
+                    "passengerType": 1,
+                    "passportTypeName": "身份证",
+                    "passportType": 1,
+                    "passportNumber": "410928200909156962",
+                    "passengerId": 433373920,
+                    "regionCode": "CHN",
+                    "mobilePhone": "156****3546",
+                    "birthday": "2009-09-15",
+                    "passportExpireDate": "",
+                    "countryName": "中国"
+                },
+                {
+                    "passengerName": "白春悦",
+                    "passengerType": 1,
+                    "passportTypeName": "身份证",
+                    "passportType": 1,
+                    "passportNumber": "130535200909212826",
+                    "passengerId": 433373921,
+                    "regionCode": "CHN",
+                    "mobilePhone": "183****1535",
+                    "birthday": "2009-09-21",
+                    "passportExpireDate": "",
+                    "countryName": "中国"
+                }
+            ]
+        }
+    ],
+    "orderPrice": 1748.00,
+    "orderFlag": 0,
+    "acceptGroupTicketType": null,
+    "orderSign": null,
+    "urgent": false,
+    "isUrgent": false
+}
