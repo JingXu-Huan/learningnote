@@ -294,6 +294,140 @@ list.parallelStream()
 
 ---
 
+## 七、Stream API 最佳实践
+
+### 1. 先判断是否适合使用 Stream
+
+Stream 更适合表达“筛选、转换、聚合”这类数据处理流程。如果循环中包含复杂分支、异常处理、多个变量累加，或者需要频繁 `break` / `continue`，普通 `for` 循环通常更清晰，不要为了使用 Stream 而使用 Stream。
+
+```java
+// 适合 Stream：表达清晰的数据转换
+List<String> names = users.stream()
+    .filter(User::isEnabled)
+    .map(User::getName)
+    .toList(); // Java 16+
+
+// 复杂流程使用普通循环更容易维护
+for (User user : users) {
+    if (!user.isEnabled()) {
+        continue;
+    }
+    // 需要记录多种中间状态、处理异常或提前退出时，循环更直观
+}
+```
+
+### 2. 尽早过滤，减少后续处理量
+
+把成本低、选择性高的 `filter` 放在前面，避免无效元素继续执行 `map`、排序等操作。`sorted`、`distinct` 等可能需要缓存数据的操作，通常应尽量靠后。
+
+```java
+List<String> result = orders.stream()
+    .filter(Order::isPaid)
+    .filter(order -> order.getAmount().compareTo(BigDecimal.ZERO) > 0)
+    .map(Order::getOrderNo)
+    .toList();
+```
+
+### 3. 不要在 Stream 中修改外部状态
+
+Lambda 中修改外部集合、计数器或对象属性会降低可读性，并且在并行流中容易产生线程安全问题。优先使用 `map`、`filter`、`collect`、`count` 等无副作用操作。
+
+```java
+// 不推荐：依赖外部变量
+List<String> result = new ArrayList<>();
+users.stream().forEach(user -> result.add(user.getName()));
+
+// 推荐：让 Stream 自己产生结果
+List<String> names = users.stream()
+    .map(User::getName)
+    .toList();
+```
+
+### 4. 使用 `toMap` 时明确处理重复 key
+
+`Collectors.toMap` 默认不允许 key 重复，重复时会抛出 `IllegalStateException`。只要业务上不能保证 key 唯一，就必须提供合并函数。
+
+```java
+Map<String, User> userMap = users.stream()
+    .collect(Collectors.toMap(
+        User::getUsername,
+        Function.identity(),
+        (oldUser, newUser) -> newUser // 重复时保留后者
+    ));
+```
+
+### 5. 正确处理 null，避免把空值带入链路
+
+集合本身可能为 `null` 时，应在进入 Stream 前统一处理；集合元素可能为 `null` 时，再过滤元素。不要在每个 Lambda 中重复判断。
+
+```java
+List<String> names = Optional.ofNullable(users)
+    .orElseGet(Collections::emptyList)
+    .stream()
+    .filter(Objects::nonNull)
+    .map(User::getName)
+    .filter(Objects::nonNull)
+    .toList();
+```
+
+### 6. 数值计算优先使用基本类型流
+
+`mapToInt`、`mapToLong`、`mapToDouble` 可以避免 `Integer` 等包装类型的装箱和拆箱，统计代码也更直接。
+
+```java
+int total = orders.stream()
+    .mapToInt(Order::getQuantity)
+    .sum();
+
+double average = orders.stream()
+    .mapToDouble(Order::getAmountAsDouble)
+    .average()
+    .orElse(0D);
+```
+
+### 7. `Optional` 不要直接调用 `get()`
+
+`findFirst`、`min`、`max` 等操作可能没有结果。根据业务选择默认值，或者使用带明确异常信息的 `orElseThrow`。
+
+```java
+User user = users.stream()
+    .filter(User::isEnabled)
+    .findFirst()
+    .orElseThrow(() -> new IllegalStateException("没有可用用户"));
+```
+
+### 8. 谨慎使用 `peek`
+
+`peek` 主要用于临时调试，不应承担修改对象、写数据库、发送消息等业务副作用。调试完成后应删除，正式业务逻辑应放在明确的终端操作或普通代码中。
+
+### 9. 并行流不要默认使用
+
+`parallelStream()` 会复用公共 `ForkJoinPool`，可能与应用中的其他任务互相影响；它也不适合数据库查询、远程调用等阻塞 IO。只有在数据量、任务独立性和基准测试都支持时才考虑使用，并确保收集器和共享对象是线程安全的。
+
+### 10. 保持链路短小、命名清晰
+
+不要把一条 Stream 链写成难以调试的“万能表达式”。复杂转换可以提取为有名字的方法；需要观察中间结果时，拆成多个局部变量通常比堆叠更多 `peek` 更好。
+
+```java
+List<Summary> summaries = orders.stream()
+    .filter(this::isValidOrder)
+    .map(this::toSummary)
+    .toList();
+```
+
+### 最佳实践速记
+
+| 建议 | 目的 |
+|------|------|
+| 先过滤，再转换和排序 | 减少无效计算 |
+| 无副作用地处理数据 | 便于理解，也更安全 |
+| `toMap` 显式处理重复 key | 避免运行时异常 |
+| 数值计算使用 `mapToInt` 等 | 减少装箱拆箱 |
+| 不滥用 `peek` 和并行流 | 避免隐藏副作用和线程问题 |
+| 复杂逻辑使用普通循环或拆分方法 | 保持可读、可调试 |
+
+------
+
 ## 🔗 相关笔记
 
 - [[lambda表达式]] —— Stream 操作大量使用 Lambda 表达式
