@@ -1,5 +1,15 @@
-查询过去3分钟内，最近一条数据：
-```
+# Flux 片段速查 😎😎😎
+
+这是一页轻量速查，完整教程请看：
+
+- [[InfluxDB]]
+- [[InfluxDB-Quickstart]]
+
+------
+
+## 查询过去 3 分钟内最近一条数据
+
+```text
 from(bucket: "test08")
 
  |> range(start: -3m)
