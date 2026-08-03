@@ -90,10 +90,10 @@ private static void readAgain(
 
 ## 5.5 官方 API
 
-- [AsynchronousServerSocketChannel](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/AsynchronousServerSocketChannel.html)
-- [AsynchronousSocketChannel](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/AsynchronousSocketChannel.html)
-- [CompletionHandler](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/CompletionHandler.html)
-- [AsynchronousChannelGroup](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/AsynchronousChannelGroup.html)
+- [AsynchronousServerSocketChannel](https://www.apiref.com/java11-zh/java.base/java/nio/channels/AsynchronousServerSocketChannel.html)
+- [AsynchronousSocketChannel](https://www.apiref.com/java11-zh/java.base/java/nio/channels/AsynchronousSocketChannel.html)
+- [CompletionHandler](https://www.apiref.com/java11-zh/java.base/java/nio/channels/CompletionHandler.html)
+- [AsynchronousChannelGroup](https://www.apiref.com/java11-zh/java.base/java/nio/channels/AsynchronousChannelGroup.html)
 
 ## 5.6 知识问答
 
@@ -116,4 +116,3 @@ private static void readAgain(
 ------
 
 上一章：[[04-Selector与手写Reactor]]　下一章：[[06-Netty入门与第一个Echo服务]]
-

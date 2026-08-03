@@ -79,10 +79,10 @@ buffer.compact();
 
 ## 3.6 官方 API
 
-- [ByteBuffer](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/ByteBuffer.html)
-- [Buffer](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/Buffer.html)
-- [SocketChannel](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/SocketChannel.html)
-- [FileChannel.transferTo](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/FileChannel.html#transferTo(long,long,java.nio.channels.WritableByteChannel))
+- [ByteBuffer](https://www.apiref.com/java11-zh/java.base/java/nio/ByteBuffer.html)
+- [Buffer](https://www.apiref.com/java11-zh/java.base/java/nio/Buffer.html)
+- [SocketChannel](https://www.apiref.com/java11-zh/java.base/java/nio/channels/SocketChannel.html)
+- [FileChannel.transferTo](https://www.apiref.com/java11-zh/java.base/java/nio/channels/FileChannel.html#transferTo(long,long,java.nio.channels.WritableByteChannel))
 
 ## 3.7 知识问答
 
@@ -109,4 +109,3 @@ buffer.compact();
 ------
 
 上一章：[[02-BIO阻塞式网络编程]]　下一章：[[04-Selector与手写Reactor]]
-

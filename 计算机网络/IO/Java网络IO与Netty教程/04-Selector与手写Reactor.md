@@ -11,6 +11,18 @@
 处理：ACCEPT / CONNECT / READ / WRITE
 ```
 
+这里最容易混淆的是 `SelectionKey`。你可以把它理解成“Channel 注册到 Selector 之后生成的一张工单”：
+
+| 字段 | 作用 |
+| --- | --- |
+| `channel()` | 对应哪一个 Channel |
+| `selector()` | 被注册到了哪一个 Selector |
+| `interestOps()` | 我希望关注哪些事件，例如 `OP_READ`、`OP_WRITE` |
+| `readyOps()` | 底层已经准备好的事件 |
+| `attachment()` | 这条连接自己的上下文数据 |
+
+也就是说，`SelectionKey` 不是“连接本身”，而是“连接 + 感兴趣事件 + 就绪事件 + 业务上下文”的组合入口。Reactor 线程拿到 Key 以后，通常不是去全局查表，而是直接通过 Key 找到对应连接状态。
+
 ## 4.2 教程代码：最小 Reactor
 
 完整代码：`示例代码/src/main/java/note/io/nio/NioEchoServer.java`。
@@ -66,7 +78,7 @@ private static void accept(ServerSocketChannel server, Selector selector)
 
 `attachment` 保存每条连接自己的读缓冲区、待写队列和协议解析状态，绝不能让所有连接共享一个可变 ByteBuffer。
 
-## 4.3 OP_WRITE 为什么不能一直监听
+## 4.3 OP_WRITE 为什么不能一直监听，以及这些位运算在干什么
 
 Socket 大多数时间都可写。永久关注 `OP_WRITE` 会让 `select` 频繁立即返回，形成空转：
 
@@ -77,6 +89,21 @@ key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
 // 队列清空后关闭
 key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
 ```
+
+这里的写法看起来像“魔法”，其实只是位图开关：
+
+| 表达式 | 含义 |
+| --- | --- |
+| `a | b` | 把某一位打开，适合“增加关注事件” |
+| `a & b` | 只保留双方都为 1 的位，适合“按掩码删除事件” |
+| `~b` | 按位取反，把目标位变成 0，其余位变成 1 |
+
+所以：
+
+- `key.interestOps() | SelectionKey.OP_WRITE` 的意思是“在原有关注事件上，再加上 WRITE”；
+- `key.interestOps() & ~SelectionKey.OP_WRITE` 的意思是“保留原有事件，但把 WRITE 那一位清掉”。
+
+如果直接写成 `key.interestOps(SelectionKey.OP_WRITE)`，就会把原本的 `OP_READ`、`OP_ACCEPT` 等关注事件覆盖掉，导致连接行为异常。这里一定要先理解：`interestOps` 本质上是一个事件位图，而不是一个单独枚举值。
 
 ## 4.4 跨线程修改 interestOps
 
@@ -96,10 +123,10 @@ Netty 不是另一套网络原理，而是把这些易错细节封装成稳定�
 
 ## 4.6 官方 API
 
-- [Selector](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/Selector.html)
-- [SelectionKey](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/SelectionKey.html)
-- [SelectableChannel.register](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/SelectableChannel.html#register(java.nio.channels.Selector,int,java.lang.Object))
-- [Selector.wakeup](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/nio/channels/Selector.html#wakeup())
+- [Selector](https://www.apiref.com/java11-zh/java.base/java/nio/channels/Selector.html)
+- [SelectionKey](https://www.apiref.com/java11-zh/java.base/java/nio/channels/SelectionKey.html)
+- [SelectableChannel.register](https://www.apiref.com/java11-zh/java.base/java/nio/channels/SelectableChannel.html#register(java.nio.channels.Selector,int,java.lang.Object))
+- [Selector.wakeup](https://www.apiref.com/java11-zh/java.base/java/nio/channels/Selector.html#wakeup())
 - [Netty NioEventLoop](https://netty.io/4.1/api/io/netty/channel/nio/NioEventLoop.html)
 
 ## 4.7 知识问答
@@ -127,4 +154,3 @@ Netty 不是另一套网络原理，而是把这些易错细节封装成稳定�
 ------
 
 上一章：[[03-NIO的Buffer与Channel]]　下一章：[[05-AIO异步完成模型]]
-

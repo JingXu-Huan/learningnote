@@ -73,11 +73,11 @@ private static void handle(Socket socket) {
 
 ## 2.5 官方 API
 
-- [ServerSocket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/ServerSocket.html)
-- [Socket](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/Socket.html)
-- [BufferedReader.readLine](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/io/BufferedReader.html#readLine())
-- [ThreadPoolExecutor](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/util/concurrent/ThreadPoolExecutor.html)
-- [SocketTimeoutException](https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/net/SocketTimeoutException.html)
+- [ServerSocket](https://www.apiref.com/java11-zh/java.base/java/net/ServerSocket.html)
+- [Socket](https://www.apiref.com/java11-zh/java.base/java/net/Socket.html)
+- [BufferedReader.readLine](https://www.apiref.com/java11-zh/java.base/java/io/BufferedReader.html#readLine())
+- [ThreadPoolExecutor](https://www.apiref.com/java11-zh/java.base/java/util/concurrent/ThreadPoolExecutor.html)
+- [SocketTimeoutException](https://www.apiref.com/java11-zh/java.base/java/net/SocketTimeoutException.html)
 
 ## 2.6 知识问答
 
@@ -100,4 +100,3 @@ private static void handle(Socket socket) {
 ------
 
 上一章：[[01-网络IO基本功与常见模型]]　下一章：[[03-NIO的Buffer与Channel]]
-
