@@ -1,0 +1,567 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2345d6e8'/%3E%3Cpath d='M17 45V19h8l14 15V19h8v26h-8L25 30v15z' fill='%2307111f'/%3E%3C/svg%3E">
+    <title>Netty 核心机制交互动画</title>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #07111f;
+            --panel: #0d1b2d;
+            --panel-2: #12243a;
+            --text: #e8f1ff;
+            --muted: #91a6c2;
+            --cyan: #45d6e8;
+            --blue: #6d8cff;
+            --orange: #ffb45e;
+            --green: #5ee1a2;
+            --red: #ff7384;
+            --line: #29415f;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text);
+            background:
+                radial-gradient(circle at 80% 0%, #132c52 0, transparent 35rem),
+                radial-gradient(circle at 10% 85%, #123f42 0, transparent 32rem),
+                var(--bg);
+        }
+
+        main {
+            width: min(1120px, calc(100% - 32px));
+            margin: 0 auto;
+            padding: 42px 0 64px;
+        }
+
+        header { margin-bottom: 24px; }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(30px, 5vw, 54px);
+            letter-spacing: -0.04em;
+        }
+
+        header p, .lead {
+            max-width: 780px;
+            color: var(--muted);
+            line-height: 1.8;
+        }
+
+        .tabs, .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        button {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 10px 16px;
+            color: var(--text);
+            background: #101f33;
+            cursor: pointer;
+            font-weight: 650;
+        }
+
+        button:hover, button:focus-visible {
+            border-color: var(--cyan);
+            outline: none;
+        }
+
+        button[aria-selected="true"], button.primary {
+            color: #04131c;
+            background: var(--cyan);
+            border-color: var(--cyan);
+        }
+
+        .lesson {
+            display: none;
+            padding: clamp(18px, 4vw, 34px);
+            border: 1px solid var(--line);
+            border-radius: 24px;
+            background: color-mix(in srgb, var(--panel) 94%, transparent);
+            box-shadow: 0 24px 80px #0008;
+        }
+
+        .lesson.active { display: block; }
+        .lesson h2 { margin-top: 0; font-size: 28px; }
+
+        .stage {
+            position: relative;
+            min-height: 300px;
+            overflow: hidden;
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 22px;
+            background:
+                linear-gradient(#ffffff05 1px, transparent 1px),
+                linear-gradient(90deg, #ffffff05 1px, transparent 1px),
+                #081525;
+            background-size: 28px 28px;
+        }
+
+        .event-grid {
+            display: grid;
+            grid-template-columns: 1fr 1.25fr 1fr;
+            align-items: center;
+            gap: 24px;
+            min-height: 250px;
+        }
+
+        .stack { display: grid; gap: 10px; }
+
+        .box, .pipeline-node {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 14px;
+            color: var(--muted);
+            background: var(--panel-2);
+            transition: 220ms ease;
+        }
+
+        .box strong, .pipeline-node strong {
+            display: block;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .active-box {
+            color: var(--text);
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 3px #45d6e822, 0 0 34px #45d6e833;
+            transform: translateY(-2px);
+        }
+
+        .event-loop {
+            border: 2px solid var(--blue);
+            border-radius: 50%;
+            aspect-ratio: 1;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            background: radial-gradient(circle, #172f5d, #0b172a 72%);
+            box-shadow: inset 0 0 50px #6d8cff22;
+        }
+
+        .event-loop span { color: var(--muted); }
+
+        .status {
+            margin-top: 18px;
+            min-height: 58px;
+            padding: 14px 16px;
+            border-left: 4px solid var(--orange);
+            color: #ffdcb4;
+            background: #ffb45e12;
+            line-height: 1.65;
+        }
+
+        .pipeline {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(120px, 1fr));
+            align-items: center;
+            gap: 14px;
+            overflow-x: auto;
+            padding: 32px 6px;
+        }
+
+        .pipeline-node {
+            position: relative;
+            min-height: 94px;
+            display: grid;
+            place-content: center;
+            text-align: center;
+        }
+
+        .pipeline-node:not(:last-child)::after {
+            content: "→";
+            position: absolute;
+            right: -18px;
+            top: 32px;
+            color: var(--line);
+            font-size: 24px;
+        }
+
+        .pipeline.outbound {
+            direction: rtl;
+        }
+
+        .pipeline.outbound .pipeline-node { direction: ltr; }
+        .pipeline.outbound .pipeline-node:not(:last-child)::after { content: "←"; }
+
+        .active-node {
+            border-color: var(--green);
+            color: var(--text);
+            box-shadow: 0 0 26px #5ee1a244;
+            transform: translateY(-6px);
+        }
+
+        .buffer-meta {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .metric {
+            padding: 14px;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            color: var(--muted);
+            background: var(--panel-2);
+        }
+
+        .metric b {
+            display: block;
+            color: var(--text);
+            font-size: 26px;
+        }
+
+        .cells {
+            display: grid;
+            grid-template-columns: repeat(12, minmax(42px, 1fr));
+            gap: 6px;
+            overflow-x: auto;
+            padding: 34px 0 16px;
+        }
+
+        .cell {
+            position: relative;
+            aspect-ratio: 1;
+            min-width: 42px;
+            display: grid;
+            place-items: center;
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            color: var(--muted);
+            background: #0b192a;
+        }
+
+        .cell.readable {
+            color: #051710;
+            background: var(--green);
+            border-color: var(--green);
+        }
+
+        .cell.consumed {
+            color: #ffc2ca;
+            background: #4b1b2a;
+            border-color: var(--red);
+        }
+
+        .marker {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .reader-marker { top: -27px; color: var(--orange); }
+        .writer-marker { bottom: -25px; color: var(--cyan); }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            margin-right: 5px;
+            border-radius: 50%;
+        }
+
+        code { color: #9cebf5; }
+
+        @media (max-width: 760px) {
+            .event-grid { grid-template-columns: 1fr; }
+            .event-loop {
+                width: 180px;
+                margin: 0 auto;
+            }
+            .pipeline { grid-template-columns: repeat(6, 130px); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                scroll-behavior: auto !important;
+                transition: none !important;
+                animation: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>把 Netty “跑”进脑海里</h1>
+        <p>三个交互实验分别解释线程所有权、Pipeline 双向传播和 ByteBuf 双游标。按“下一步”观察状态变化，再回到对应 Markdown 章节阅读代码。</p>
+    </header>
+
+    <nav class="tabs" aria-label="动画主题">
+        <button type="button" data-tab="eventloop" data-testid="tab-eventloop"
+                aria-selected="true">EventLoop</button>
+        <button type="button" data-tab="pipeline" data-testid="tab-pipeline"
+                aria-selected="false">Pipeline</button>
+        <button type="button" data-tab="bytebuf" data-testid="tab-bytebuf"
+                aria-selected="false">ByteBuf</button>
+    </nav>
+
+    <section id="eventloop" class="lesson active" aria-labelledby="eventloop-title">
+        <h2 id="eventloop-title">一个 EventLoop，推进多条 Channel</h2>
+        <p class="lead">重点不是“每条连接都同时执行”，而是一个线程快速轮转就绪 IO 和任务。任何长阻塞都会拖慢它名下的全部 Channel。</p>
+        <div class="stage">
+            <div class="event-grid">
+                <div class="stack">
+                    <div class="box channel" data-index="1"><strong>Channel A</strong>暂时无数据</div>
+                    <div class="box channel" data-index="2"><strong>Channel B</strong>收到一帧</div>
+                    <div class="box channel" data-index="3"><strong>Channel C</strong>暂时无数据</div>
+                </div>
+                <div class="event-loop" data-role="loop">
+                    <div><strong>NioEventLoop</strong><br><span>同一个线程</span></div>
+                </div>
+                <div class="stack">
+                    <div class="box" data-role="selector"><strong>Selector</strong>等待就绪事件</div>
+                    <div class="box" data-role="pipeline"><strong>Pipeline</strong>解码与业务事件</div>
+                    <div class="box" data-role="tasks"><strong>Task Queue</strong>普通/定时任务</div>
+                </div>
+            </div>
+        </div>
+        <div class="controls">
+            <button type="button" class="primary" data-testid="event-next">下一步</button>
+            <button type="button" data-testid="event-reset">重置</button>
+        </div>
+        <div class="status" data-testid="event-status" aria-live="polite"></div>
+    </section>
+
+    <section id="pipeline" class="lesson" aria-labelledby="pipeline-title">
+        <h2 id="pipeline-title">Pipeline 是一条双向链</h2>
+        <p class="lead">入站从 Head 到 Tail；出站从 Tail 到 Head。编码器和解码器的摆放顺序决定消息能否被正确转换。</p>
+        <div class="controls">
+            <button type="button" class="primary" data-flow="inbound"
+                    data-testid="flow-inbound">入站：字节 → 对象</button>
+            <button type="button" data-flow="outbound"
+                    data-testid="flow-outbound">出站：对象 → 字节</button>
+        </div>
+        <div class="stage">
+            <div class="pipeline" data-testid="pipeline-track">
+                <div class="pipeline-node" data-name="Head"><strong>Head</strong>Socket</div>
+                <div class="pipeline-node" data-name="FrameDecoder"><strong>FrameDecoder</strong>恢复边界</div>
+                <div class="pipeline-node" data-name="MessageDecoder"><strong>MessageDecoder</strong>字节转对象</div>
+                <div class="pipeline-node" data-name="Business"><strong>Business</strong>处理请求</div>
+                <div class="pipeline-node" data-name="MessageEncoder"><strong>MessageEncoder</strong>对象转字节</div>
+                <div class="pipeline-node" data-name="Tail"><strong>Tail</strong>应用端</div>
+            </div>
+        </div>
+        <div class="controls">
+            <button type="button" class="primary" data-testid="pipeline-next">传播一步</button>
+            <button type="button" data-testid="pipeline-reset">重置</button>
+        </div>
+        <div class="status" data-testid="pipeline-status" aria-live="polite"></div>
+    </section>
+
+    <section id="bytebuf" class="lesson" aria-labelledby="bytebuf-title">
+        <h2 id="bytebuf-title">ByteBuf 不需要 flip</h2>
+        <p class="lead">写操作推进 writerIndex，读操作推进 readerIndex；二者之间始终是可读区域。被读过的空间可通过 discardReadBytes 回收。</p>
+        <div class="buffer-meta">
+            <div class="metric">readerIndex<b data-testid="reader-index">0</b></div>
+            <div class="metric">writerIndex<b data-testid="writer-index">0</b></div>
+            <div class="metric">readableBytes<b data-testid="readable-bytes">0</b></div>
+        </div>
+        <div class="stage">
+            <div class="cells" data-testid="buffer-cells"></div>
+            <div class="legend">
+                <span><i class="dot" style="background:var(--red)"></i>已读</span>
+                <span><i class="dot" style="background:var(--green)"></i>可读</span>
+                <span><i class="dot" style="background:#0b192a;border:1px solid var(--line)"></i>可写</span>
+            </div>
+        </div>
+        <div class="controls">
+            <button type="button" class="primary" data-testid="buffer-write">写入 4B</button>
+            <button type="button" data-testid="buffer-read">读取 1B</button>
+            <button type="button" data-testid="buffer-discard">回收已读空间</button>
+            <button type="button" data-testid="buffer-reset">重置</button>
+        </div>
+        <div class="status" data-testid="buffer-status" aria-live="polite"></div>
+    </section>
+</main>
+
+<script>
+    const tabs = document.querySelectorAll("[data-tab]");
+    const lessons = document.querySelectorAll(".lesson");
+
+    tabs.forEach(button => {
+        button.addEventListener("click", () => {
+            tabs.forEach(item => item.setAttribute("aria-selected", "false"));
+            lessons.forEach(item => item.classList.remove("active"));
+            button.setAttribute("aria-selected", "true");
+            document.getElementById(button.dataset.tab).classList.add("active");
+        });
+    });
+
+    const eventSteps = [
+        { target: "selector", text: "① Selector 阻塞等待：没有就绪事件时，EventLoop 不会逐条连接空轮询。" },
+        { target: "channel-2", text: "② Channel B 变为可读；就绪只是一条提示，真正读取仍由 EventLoop 执行。" },
+        { target: "loop", text: "③ EventLoop 读取 Channel B。Channel A/C 仍由同一个线程管理，但不会为它们执行无效 read。" },
+        { target: "pipeline", text: "④ 读取到的 ByteBuf 进入 Channel B 的 Pipeline，依次完成分帧、解码和业务传播。" },
+        { target: "tasks", text: "⑤ 同一轮还会推进普通任务和定时任务，所以业务 Handler 不能长时间阻塞。" },
+        { target: "selector", text: "⑥ 本轮结束，再次 select。一个 Channel 通常始终由同一个 EventLoop 驱动。" }
+    ];
+    let eventIndex = 0;
+
+    function renderEvent() {
+        document.querySelectorAll("#eventloop .active-box")
+                .forEach(item => item.classList.remove("active-box"));
+        const step = eventSteps[eventIndex];
+        const selector = step.target.startsWith("channel-")
+                ? `.channel[data-index="${step.target.split("-")[1]}"]`
+                : `[data-role="${step.target}"]`;
+        document.querySelector(`#eventloop ${selector}`).classList.add("active-box");
+        document.querySelector("[data-testid='event-status']").textContent = step.text;
+    }
+
+    document.querySelector("[data-testid='event-next']").addEventListener("click", () => {
+        eventIndex = (eventIndex + 1) % eventSteps.length;
+        renderEvent();
+    });
+    document.querySelector("[data-testid='event-reset']").addEventListener("click", () => {
+        eventIndex = 0;
+        renderEvent();
+    });
+    renderEvent();
+
+    const pipelineNodes = Array.from(document.querySelectorAll(".pipeline-node"));
+    const inbound = ["Head", "FrameDecoder", "MessageDecoder", "Business", "Tail"];
+    const outbound = ["Tail", "Business", "MessageEncoder", "Head"];
+    let flow = "inbound";
+    let pipelineIndex = 0;
+
+    function renderPipeline() {
+        pipelineNodes.forEach(node => node.classList.remove("active-node"));
+        const path = flow === "inbound" ? inbound : outbound;
+        const current = path[pipelineIndex];
+        pipelineNodes.find(node => node.dataset.name === current)
+                .classList.add("active-node");
+        document.querySelector("[data-testid='pipeline-track']")
+                .classList.toggle("outbound", flow === "outbound");
+        document.querySelector("[data-testid='pipeline-status']").textContent =
+                `${flow === "inbound" ? "入站" : "出站"}第 ${pipelineIndex + 1} 步：${current}`
+                + (current === "Business"
+                        ? "。业务对象在这里被消费或产生。"
+                        : "。事件只经过方向匹配的 Handler。");
+    }
+
+    document.querySelectorAll("[data-flow]").forEach(button => {
+        button.addEventListener("click", () => {
+            document.querySelectorAll("[data-flow]")
+                    .forEach(item => item.classList.remove("primary"));
+            button.classList.add("primary");
+            flow = button.dataset.flow;
+            pipelineIndex = 0;
+            renderPipeline();
+        });
+    });
+    document.querySelector("[data-testid='pipeline-next']")
+            .addEventListener("click", () => {
+                const path = flow === "inbound" ? inbound : outbound;
+                pipelineIndex = (pipelineIndex + 1) % path.length;
+                renderPipeline();
+            });
+    document.querySelector("[data-testid='pipeline-reset']")
+            .addEventListener("click", () => {
+                pipelineIndex = 0;
+                renderPipeline();
+            });
+    renderPipeline();
+
+    const capacity = 12;
+    let readerIndex = 0;
+    let writerIndex = 0;
+    let sequence = 65;
+    let bytes = Array(capacity).fill("");
+
+    function renderBuffer(message) {
+        const container = document.querySelector("[data-testid='buffer-cells']");
+        container.replaceChildren();
+        for (let index = 0; index < capacity; index += 1) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            if (index < readerIndex) cell.classList.add("consumed");
+            if (index >= readerIndex && index < writerIndex) {
+                cell.classList.add("readable");
+            }
+            cell.textContent = bytes[index] || index;
+            if (index === readerIndex && readerIndex < capacity) {
+                const marker = document.createElement("span");
+                marker.className = "marker reader-marker";
+                marker.textContent = "reader";
+                cell.append(marker);
+            }
+            if (index === writerIndex && writerIndex < capacity) {
+                const marker = document.createElement("span");
+                marker.className = "marker writer-marker";
+                marker.textContent = "writer";
+                cell.append(marker);
+            }
+            container.append(cell);
+        }
+        document.querySelector("[data-testid='reader-index']").textContent = readerIndex;
+        document.querySelector("[data-testid='writer-index']").textContent = writerIndex;
+        document.querySelector("[data-testid='readable-bytes']").textContent =
+                writerIndex - readerIndex;
+        document.querySelector("[data-testid='buffer-status']").textContent = message;
+    }
+
+    document.querySelector("[data-testid='buffer-write']")
+            .addEventListener("click", () => {
+                const count = Math.min(4, capacity - writerIndex);
+                for (let offset = 0; offset < count; offset += 1) {
+                    bytes[writerIndex++] = String.fromCharCode(sequence++);
+                }
+                renderBuffer(count
+                        ? `writeBytes 推进 writerIndex ${count} 格；不需要 flip。`
+                        : "没有可写空间；真实 ByteBuf 可能扩容或抛出容量异常。");
+            });
+    document.querySelector("[data-testid='buffer-read']")
+            .addEventListener("click", () => {
+                if (readerIndex < writerIndex) {
+                    const value = bytes[readerIndex++];
+                    renderBuffer(`readByte 读出 ${value}，只推进 readerIndex。`);
+                } else {
+                    renderBuffer("readableBytes 为 0，现在没有数据可读。");
+                }
+            });
+    document.querySelector("[data-testid='buffer-discard']")
+            .addEventListener("click", () => {
+                const readable = bytes.slice(readerIndex, writerIndex);
+                bytes = [...readable, ...Array(capacity - readable.length).fill("")];
+                writerIndex = readable.length;
+                readerIndex = 0;
+                renderBuffer("discardReadBytes 搬移未读内容并回收前部空间；它可能产生复制成本。");
+            });
+    document.querySelector("[data-testid='buffer-reset']")
+            .addEventListener("click", () => {
+                readerIndex = 0;
+                writerIndex = 0;
+                sequence = 65;
+                bytes = Array(capacity).fill("");
+                renderBuffer("缓冲区已重置。绿色区将表示 readerIndex 与 writerIndex 之间的可读字节。");
+            });
+
+    renderBuffer("点击“写入 4B”，观察 writerIndex 独立移动。");
+</script>
+</body>
+</html>
