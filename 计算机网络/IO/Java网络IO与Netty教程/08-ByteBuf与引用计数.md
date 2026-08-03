@@ -1,5 +1,7 @@
 # 八、ByteBuf 与引用计数
 
+> 本章始终回答两个问题：**现在可读多少字节？谁负责最后 release？**
+
 ## 8.1 为什么 Netty 不只使用 ByteBuffer
 
 `ByteBuf` 为网络场景提供：
@@ -33,6 +35,20 @@ buf.release();
 ```
 
 `getInt(index)` 是绝对读取，不移动 `readerIndex`；`readInt()` 是相对读取，会推进游标。协议解码器常用 `getInt` 偷看长度，再判断完整帧是否到齐。
+
+### 把双游标按字节画出来
+
+执行 `writeInt(3)` 后写入了 4 字节长度；再写 `cat` 的 3 个 UTF-8 字节：
+
+```text
+索引：       0 1 2 3 | 4 5 6 | 7 ... 15
+内容：       0 0 0 3 | c a t | （可写空间）
+readerIndex: ^
+writerIndex:              ^
+readableBytes() = writerIndex - readerIndex = 7
+```
+
+执行 `readInt()` 后，`readerIndex` 从 0 前进到 4；再读取 3 个字符后前进到 7。`writerIndex` 不会因读取后退，所以通常不用像 Java `ByteBuffer` 那样调用 `flip()`。
 
 ## 8.3 分配策略
 
@@ -81,6 +97,17 @@ ReferenceCountUtil.release(msg);
 ```
 
 更安全的做法是尽早把 ByteBuf 解码为普通不可变业务对象，避免引用计数跨线程传播。
+
+### 所有权判断口诀
+
+| 你对 `msg` 做了什么 | 你应当做什么 | 原因 |
+| --- | --- | --- |
+| `ctx.fireChannelRead(msg)` | 不 release | 已把所有权交给下一个入站 Handler |
+| 自己读取并到此结束 | release（或使用自动释放 Handler） | 你是最后消费者 |
+| 异步线程稍后还要用 | 先 `retain`/`retainedDuplicate`，异步结束 release | 当前回调返回后原对象可能被释放 |
+| 转换为 `String` / `Message` | 释放原始 ByteBuf | 业务对象不再依赖底层缓冲区 |
+
+`refCnt` 是 reference count（引用计数）的缩写。初始常为 1；`retain()` 加 1，`release()` 减 1。它不是 Java 普通对象引用数，GC 不会替你维护这笔账。
 
 ## 8.5 SimpleChannelInboundHandler 的自动释放
 
@@ -155,4 +182,3 @@ $env:JAVA_TOOL_OPTIONS='-Dio.netty.leakDetection.level=paranoid'
 ------
 
 上一章：[[07-EventLoop与线程模型]]　下一章：[[09-Pipeline与Handler事件传播]]
-

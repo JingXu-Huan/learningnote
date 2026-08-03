@@ -1,5 +1,7 @@
 # 七、EventLoop 与线程模型
 
+> 先复习：`EventLoop` 可以理解为“固定负责一批连接的循环线程”。它不是每次请求都会新建的线程，也不是业务线程池的同义词。
+
 ## 7.1 最重要的线程所有权
 
 一个 Channel 注册后，通常在生命周期内绑定到同一个 EventLoop；一个 EventLoop 可以管理多个 Channel。
@@ -24,6 +26,19 @@ select/处理就绪 IO
 ```
 
 `ctx.executor().execute(...)` 和 `schedule(...)` 最终会进入相关执行器。一个长任务会同时延迟该 EventLoop 上其他 Channel 的读写、心跳和定时器。
+
+### 用一个时间线理解“为什么不能阻塞”
+
+假设 Channel A 与 B 恰好由同一个 `nioEventLoop-3` 管理：
+
+```text
+10:00:00  A 收到请求 -> Handler 开始执行
+10:00:00  Handler 中执行 JDBC 查询，阻塞 3 秒
+10:00:01  B 的字节已经到达网卡，但 EventLoop 无法处理
+10:00:03  A 的 JDBC 返回，EventLoop 才继续处理 B
+```
+
+所以“一个连接卡住”经常表现成“偶尔有很多连接一起慢”。正确做法不是给 `NioEventLoopGroup` 盲目加线程，而是把确实会阻塞的业务移出 EventLoop，或改为异步客户端。
 
 ## 7.3 教程代码：证明事件线程固定
 
@@ -66,6 +81,13 @@ pipeline.addLast(businessGroup, "blockingBusiness",
         new BlockingBusinessHandler());
 pipeline.addLast("encode", new StringEncoder(StandardCharsets.UTF_8));
 ```
+
+| 名称 | 含义 | 不要误解为 |
+| --- | --- | --- |
+| `businessGroup` | 专门运行耗时/阻塞 Handler 的执行器组 | 每条连接一个独立线程 |
+| `pipeline.addLast(businessGroup, ...)` | 仅将这个 Handler 的回调调度到业务线程 | 整条 Pipeline 都离开 EventLoop |
+| `ctx.executor()` | 当前 Handler 实际所属的执行器 | 永远等于 NIO EventLoop；若 Handler 被切换，它会是业务执行器 |
+| `scheduleAtFixedRate` | 定期把一个任务提交到该执行器 | 精准实时定时器；繁忙时仍可能延后 |
 
 传入执行器组后，该 Handler 的回调在业务线程执行，并对同一个 `ChannelHandlerContext` 保持有序。注意：
 
@@ -130,4 +152,3 @@ ctx.channel().closeFuture().addListener(future ->
 ------
 
 上一章：[[06-Netty入门与第一个Echo服务]]　下一章：[[08-ByteBuf与引用计数]]
-

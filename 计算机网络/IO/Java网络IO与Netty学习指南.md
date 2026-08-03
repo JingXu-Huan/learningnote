@@ -20,11 +20,12 @@
 
 ### 第二阶段：掌握 Netty 核心
 
-6. [[Java网络IO与Netty教程/06-Netty入门与第一个Echo服务|Netty 入门与第一个 Echo 服务]]
-7. [[Java网络IO与Netty教程/07-EventLoop与线程模型|EventLoop 与线程模型]]
-8. [[Java网络IO与Netty教程/08-ByteBuf与引用计数|ByteBuf 与引用计数]]
-9. [[Java网络IO与Netty教程/09-Pipeline与Handler事件传播|Pipeline 与 Handler 事件传播]]
-10. [[Java网络IO与Netty教程/10-粘包拆包与自定义协议|粘包拆包与自定义协议]]
+6. [[Java网络IO与Netty教程/00A-Netty新手术语与读代码指南|Netty 新手术语与读代码指南（必读）]]
+7. [[Java网络IO与Netty教程/06-Netty入门与第一个Echo服务|Netty 入门与第一个 Echo 服务]]
+8. [[Java网络IO与Netty教程/07-EventLoop与线程模型|EventLoop 与线程模型]]
+9. [[Java网络IO与Netty教程/08-ByteBuf与引用计数|ByteBuf 与引用计数]]
+10. [[Java网络IO与Netty教程/09-Pipeline与Handler事件传播|Pipeline 与 Handler 事件传播]]
+11. [[Java网络IO与Netty教程/10-粘包拆包与自定义协议|粘包拆包与自定义协议]]
 
 ### 第三阶段：走向可用的网络服务
 
@@ -54,4 +55,3 @@
 - 能设计长度字段协议，并防御畸形长度、粘包、拆包和内存泄漏。
 - 能避免阻塞 EventLoop，并用水位线、可写状态或读开关处理背压。
 - 能用 `EmbeddedChannel` 为编解码器写单元测试，并根据日志定位常见故障。
-

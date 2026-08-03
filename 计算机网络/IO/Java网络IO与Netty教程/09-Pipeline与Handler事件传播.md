@@ -1,5 +1,7 @@
 # 九、Pipeline 与 Handler 事件传播
 
+> 把 Pipeline 画成一排工位。`ctx` 指向“我所在的工位”，而 `channel` 代表“这条连接本身”。
+
 ## 9.1 Pipeline 是双向链
 
 每条 Channel 都有自己的 `ChannelPipeline`。入站事件从 Head 向 Tail，出站事件从 Tail 向 Head：
@@ -29,6 +31,21 @@ ctx.channel().writeAndFlush(msg);
 ```
 
 从 Pipeline Tail 开始完整向前传播，可经过 C、B、A 的出站处理。选择哪一个取决于期望经过哪些编码器，而不是个人习惯。
+
+### 为什么方向会让人困惑
+
+如果 A、B、C 都是 `ChannelDuplexHandler`，当前正位于 B：
+
+```text
+入站字节：  Head -> A -> B（当前） -> C -> Tail
+ctx.fireChannelRead(msg)：                B -> C -> Tail
+
+业务回写：  Tail <- C <- B（当前） <- A <- Head
+ctx.write(msg)：                          B -> A -> Head
+channel.write(msg)：             Tail -> C -> B -> A -> Head
+```
+
+实际 Pipeline 常混有“只入站”或“只出站” Handler，框架会自动跳过不关心该事件的节点。初学时先用全双工图建立方向感。
 
 ## 9.3 教程代码：打印事件方向
 
@@ -62,6 +79,14 @@ pipeline.addLast(new FlowLogHandler("C"));
 ```
 
 收到消息打印 `A inbound -> B inbound -> C inbound`；从 Channel 回写打印 `C outbound -> B outbound -> A outbound`。
+
+| 变量 | 含义 | 为什么不能省略 |
+| --- | --- | --- |
+| `name` | 给日志看的 Handler 名称 | 与 `ctx.name()` 不同，这是示例自定义标签 |
+| `msg` | 正在沿 Pipeline 传递的对象 | 这里只打印而不消费，所以要继续传递 |
+| `promise` | 这次 write 操作的完成凭证 | 必须原样传给 `ctx.write`，否则上游无法得知写成功或失败 |
+| `ctx.fireChannelRead(msg)` | 向下一个入站工位转交消息 | 忘记调用会使消息在此截断 |
+| `ctx.write(msg, promise)` | 向前一个出站工位转交写请求 | 忘记调用会使响应永远到不了 Socket |
 
 ## 9.4 write 与 flush 是两个动作
 
@@ -145,4 +170,3 @@ if (handshakeSucceeded) {
 ------
 
 上一章：[[08-ByteBuf与引用计数]]　下一章：[[10-粘包拆包与自定义协议]]
-
