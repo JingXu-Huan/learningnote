@@ -9,6 +9,7 @@
 | AIO Echo | `note.io.aio.AioEchoServer` / `BioEchoClient 9002` | 9002 |
 | Netty 文本 Echo | `note.io.netty.echo.NettyEchoServer` / `NettyEchoClient` | 9003 |
 | Netty 自定义协议 | `note.io.netty.protocol.ProtocolServer` / `ProtocolClient` | 9004 |
+| Netty 聊天室 | `note.io.netty.chat.NettyChatServer` / `NettyChatClient` | 9005 |
 
 ## 运行
 
@@ -32,12 +33,26 @@ mvn -q org.codehaus.mojo:exec-maven-plugin:3.5.0:java '-Dexec.mainClass=note.io.
 mvn -q org.codehaus.mojo:exec-maven-plugin:3.5.0:java '-Dexec.mainClass=note.io.netty.echo.NettyEchoClient'
 ```
 
+聊天室需要同时启动一个服务端和两个客户端：
+
+```powershell
+mvn -q org.codehaus.mojo:exec-maven-plugin:3.5.0:java '-Dexec.mainClass=note.io.netty.chat.NettyChatServer'
+```
+
+再开两个终端，分别运行：
+
+```powershell
+mvn -q org.codehaus.mojo:exec-maven-plugin:3.5.0:java '-Dexec.mainClass=note.io.netty.chat.NettyChatClient'
+```
+
+在任意客户端输入文字并回车，其他在线客户端会收到广播。客户端控制台输入 `Ctrl+Z` 后回车退出。
+
 每个服务端都需要手动停止。示例强调机制，没有实现完整的生产停机编排。
 
 ## 推荐阅读顺序
 
-1. 依次运行 BIO、NIO、AIO Echo，比较线程名与控制流。
-2. 运行 Netty Echo，对照第 6～9 章。
-3. 运行自定义协议，再执行 `mvn test`，对照第 10、13 章。
-4. 把 `ReliableHandlers` 加入自己的 Pipeline，实验心跳和背压。
-
+1. 先读 `00B-Netty从0到1案例式入门.md` 开头的白话故事，再运行 Netty Echo。
+2. 依次运行 BIO、NIO、AIO Echo，比较线程名与控制流。
+3. 运行 Netty 聊天室，开两个客户端观察 `ChannelGroup` 广播。
+4. 运行自定义协议，再执行 `mvn test`，对照第 10、13 章。
+5. 把 `ReliableHandlers` 加入自己的 Pipeline，实验心跳和背压。

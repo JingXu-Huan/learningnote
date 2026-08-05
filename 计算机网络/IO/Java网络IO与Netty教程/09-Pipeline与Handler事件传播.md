@@ -1,5 +1,7 @@
 # 九、Pipeline 与 Handler 事件传播
 
+> 白话翻译：`Pipeline` 是一条流水线，`Handler` 是一个个工位。收到消息时从前往后加工；要发消息时从后往前经过打包工位。`ctx` 就是当前工位手里的传递按钮。
+
 > 把 Pipeline 画成一排工位。`ctx` 指向“我所在的工位”，而 `channel` 代表“这条连接本身”。
 
 ## 9.1 Pipeline 是双向链

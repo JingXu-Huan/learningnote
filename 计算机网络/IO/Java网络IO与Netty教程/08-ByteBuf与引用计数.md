@@ -2,6 +2,8 @@
 
 > 本章始终回答两个问题：**现在可读多少字节？谁负责最后 release？**
 
+> 白话翻译：`ByteBuf` 就是一只装着网络原始字节的箱子。`readerIndex` 是“已经拿到哪里”，`writerIndex` 是“东西写到哪里”；箱子用完后，还要明确谁负责归还。
+
 ## 8.1 为什么 Netty 不只使用 ByteBuffer
 
 `ByteBuf` 为网络场景提供：

@@ -2,6 +2,8 @@
 
 > 先复习：`EventLoop` 可以理解为“固定负责一批连接的循环线程”。它不是每次请求都会新建的线程，也不是业务线程池的同义词。
 
+> 白话翻译：一个接线员可以同时照看多条电话线，但一次只能处理当前手里的事情。如果他去查数据库、睡 3 秒，其他电话也会跟着等；耗时工作要交给专门的业务人员。
+
 ## 7.1 最重要的线程所有权
 
 一个 Channel 注册后，通常在生命周期内绑定到同一个 EventLoop；一个 EventLoop 可以管理多个 Channel。
@@ -77,10 +79,12 @@ DefaultEventExecutorGroup businessGroup =
 
 pipeline.addLast("frame", new LineBasedFrameDecoder(1024));
 pipeline.addLast("decode", new StringDecoder(StandardCharsets.UTF_8));
+pipeline.addLast("encode", new StringEncoder(StandardCharsets.UTF_8));
 pipeline.addLast(businessGroup, "blockingBusiness",
         new BlockingBusinessHandler());
-pipeline.addLast("encode", new StringEncoder(StandardCharsets.UTF_8));
 ```
+
+`encode` 要放在业务 Handler 前面：业务 Handler 使用 `ctx.writeAndFlush` 时，出站事件会向前传播，才能遇到 `StringEncoder`。
 
 | 名称 | 含义 | 不要误解为 |
 | --- | --- | --- |
