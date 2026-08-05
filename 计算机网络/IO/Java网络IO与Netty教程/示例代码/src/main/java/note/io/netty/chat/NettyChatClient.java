@@ -5,7 +5,8 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LineBasedFrameDecoder;
@@ -24,7 +25,8 @@ public final class NettyChatClient {
     }
 
     public static void main(String[] args) throws Exception {
-        NioEventLoopGroup group = new NioEventLoopGroup();
+        MultiThreadIoEventLoopGroup group =
+                new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
         try {
             Bootstrap bootstrap = new Bootstrap()
                     .group(group)

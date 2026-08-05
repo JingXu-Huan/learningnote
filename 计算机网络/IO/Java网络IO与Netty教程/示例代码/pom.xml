@@ -11,7 +11,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
-        <netty.version>4.1.136.Final</netty.version>
+        <netty.version>4.2.17.Final</netty.version>
         <junit.version>5.12.2</junit.version>
     </properties>
 
@@ -47,4 +47,3 @@
         </plugins>
     </build>
 </project>
-

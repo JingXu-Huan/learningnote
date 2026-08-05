@@ -144,8 +144,10 @@ protected void channelRead0(
 ### 第一步：准备两组 EventLoop
 
 ```java
-NioEventLoopGroup boss = new NioEventLoopGroup(1);
-NioEventLoopGroup worker = new NioEventLoopGroup();
+MultiThreadIoEventLoopGroup boss =
+        new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
+MultiThreadIoEventLoopGroup worker =
+        new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
 ```
 
 可以先把它翻译成：

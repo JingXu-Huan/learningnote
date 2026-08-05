@@ -140,12 +140,12 @@ if (handshakeSucceeded) {
 
 ## 9.8 官方 API
 
-- [ChannelPipeline](https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html)
-- [ChannelHandlerContext](https://netty.io/4.1/api/io/netty/channel/ChannelHandlerContext.html)
-- [ChannelInboundHandler](https://netty.io/4.1/api/io/netty/channel/ChannelInboundHandler.html)
-- [ChannelOutboundHandler](https://netty.io/4.1/api/io/netty/channel/ChannelOutboundHandler.html)
-- [ChannelDuplexHandler](https://netty.io/4.1/api/io/netty/channel/ChannelDuplexHandler.html)
-- [ChannelPromise](https://netty.io/4.1/api/io/netty/channel/ChannelPromise.html)
+- [ChannelPipeline](https://netty.io/4.2/api/io/netty/channel/ChannelPipeline.html)
+- [ChannelHandlerContext](https://netty.io/4.2/api/io/netty/channel/ChannelHandlerContext.html)
+- [ChannelInboundHandler](https://netty.io/4.2/api/io/netty/channel/ChannelInboundHandler.html)
+- [ChannelOutboundHandler](https://netty.io/4.2/api/io/netty/channel/ChannelOutboundHandler.html)
+- [ChannelDuplexHandler](https://netty.io/4.2/api/io/netty/channel/ChannelDuplexHandler.html)
+- [ChannelPromise](https://netty.io/4.2/api/io/netty/channel/ChannelPromise.html)
 
 ## 9.9 知识问答
 
