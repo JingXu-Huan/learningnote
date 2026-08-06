@@ -34,10 +34,8 @@ Future/Promise：异步结果
 完整代码：`示例代码/src/main/java/note/io/netty/echo/NettyEchoServer.java`。
 
 ```java
-EventLoopGroup boss = new MultiThreadIoEventLoopGroup(
-        1, NioIoHandler.newFactory());
-EventLoopGroup worker = new MultiThreadIoEventLoopGroup(
-        NioIoHandler.newFactory());
+EventLoopGroup boss = new NioEventLoopGroup(1);
+EventLoopGroup worker = new NioEventLoopGroup();
 
 try {
     ServerBootstrap bootstrap = new ServerBootstrap();
@@ -139,8 +137,7 @@ NioServerSocketChannel（监听 Channel）
 ## 6.4 客户端骨架
 
 ```java
-    EventLoopGroup group = new MultiThreadIoEventLoopGroup(
-            NioIoHandler.newFactory());
+EventLoopGroup group = new NioEventLoopGroup();
 try {
     Bootstrap bootstrap = new Bootstrap()
             .group(group)
@@ -183,11 +180,11 @@ handlerAdded
 
 ## 6.6 官方 API
 
-- [ServerBootstrap](https://netty.io/4.2/api/io/netty/bootstrap/ServerBootstrap.html)
-- [Bootstrap](https://netty.io/4.2/api/io/netty/bootstrap/Bootstrap.html)
-- [ChannelInitializer](https://netty.io/4.2/api/io/netty/channel/ChannelInitializer.html)
-- [ChannelOption](https://netty.io/4.2/api/io/netty/channel/ChannelOption.html)
-- [ChannelFuture](https://netty.io/4.2/api/io/netty/channel/ChannelFuture.html)
+- [ServerBootstrap](https://netty.io/4.1/api/io/netty/bootstrap/ServerBootstrap.html)
+- [Bootstrap](https://netty.io/4.1/api/io/netty/bootstrap/Bootstrap.html)
+- [ChannelInitializer](https://netty.io/4.1/api/io/netty/channel/ChannelInitializer.html)
+- [ChannelOption](https://netty.io/4.1/api/io/netty/channel/ChannelOption.html)
+- [ChannelFuture](https://netty.io/4.1/api/io/netty/channel/ChannelFuture.html)
 - [Netty 官方 4.x 入门](https://netty.io/wiki/user-guide-for-4.x.html)
 
 ## 6.7 知识问答

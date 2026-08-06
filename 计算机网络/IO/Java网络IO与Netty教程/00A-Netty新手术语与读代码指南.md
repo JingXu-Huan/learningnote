@@ -97,10 +97,8 @@ NioSocketChannel             表示“服务端 <-> 某一客户端”的一条 
 以下代码来自 `NettyEchoServer`，变量名都是行业常见约定：
 
 ```java
-MultiThreadIoEventLoopGroup boss =
-        new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
-MultiThreadIoEventLoopGroup worker =
-        new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+NioEventLoopGroup boss = new NioEventLoopGroup(1);
+NioEventLoopGroup worker = new NioEventLoopGroup();
 ServerBootstrap bootstrap = new ServerBootstrap();
 Channel server = bootstrap.bind(PORT).sync().channel();
 ```
@@ -191,11 +189,11 @@ channel.pipeline()
 
 ## 0.10 官方 API 起读点
 
-- [Channel](https://netty.io/4.2/api/io/netty/channel/Channel.html)
-- [ChannelHandlerContext](https://netty.io/4.2/api/io/netty/channel/ChannelHandlerContext.html)
-- [ChannelPipeline](https://netty.io/4.2/api/io/netty/channel/ChannelPipeline.html)
-- [EventLoop](https://netty.io/4.2/api/io/netty/channel/EventLoop.html)
-- [ByteBuf](https://netty.io/4.2/api/io/netty/buffer/ByteBuf.html)
+- [Channel](https://netty.io/4.1/api/io/netty/channel/Channel.html)
+- [ChannelHandlerContext](https://netty.io/4.1/api/io/netty/channel/ChannelHandlerContext.html)
+- [ChannelPipeline](https://netty.io/4.1/api/io/netty/channel/ChannelPipeline.html)
+- [EventLoop](https://netty.io/4.1/api/io/netty/channel/EventLoop.html)
+- [ByteBuf](https://netty.io/4.1/api/io/netty/buffer/ByteBuf.html)
 
 ### 自测问答
 

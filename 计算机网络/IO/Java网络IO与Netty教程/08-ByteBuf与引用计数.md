@@ -152,12 +152,12 @@ $env:JAVA_TOOL_OPTIONS='-Dio.netty.leakDetection.level=paranoid'
 
 ## 8.8 官方 API
 
-- [ByteBuf](https://netty.io/4.2/api/io/netty/buffer/ByteBuf.html)
-- [ByteBufAllocator](https://netty.io/4.2/api/io/netty/buffer/ByteBufAllocator.html)
-- [ReferenceCounted](https://netty.io/4.2/api/io/netty/util/ReferenceCounted.html)
-- [ReferenceCountUtil](https://netty.io/4.2/api/io/netty/util/ReferenceCountUtil.html)
-- [SimpleChannelInboundHandler](https://netty.io/4.2/api/io/netty/channel/SimpleChannelInboundHandler.html)
-- [ResourceLeakDetector.Level](https://netty.io/4.2/api/io/netty/util/ResourceLeakDetector.Level.html)
+- [ByteBuf](https://netty.io/4.1/api/io/netty/buffer/ByteBuf.html)
+- [ByteBufAllocator](https://netty.io/4.1/api/io/netty/buffer/ByteBufAllocator.html)
+- [ReferenceCounted](https://netty.io/4.1/api/io/netty/util/ReferenceCounted.html)
+- [ReferenceCountUtil](https://netty.io/4.1/api/io/netty/util/ReferenceCountUtil.html)
+- [SimpleChannelInboundHandler](https://netty.io/4.1/api/io/netty/channel/SimpleChannelInboundHandler.html)
+- [ResourceLeakDetector.Level](https://netty.io/4.1/api/io/netty/util/ResourceLeakDetector.Level.html)
 
 ## 8.9 知识问答
 
