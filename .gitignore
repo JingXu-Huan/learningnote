@@ -1,0 +1,74 @@
+# 操作系统生成文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE 与编辑器本地配置
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# Python 字节码与缓存
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+
+# Python 虚拟环境
+.venv/
+venv/
+env/
+ENV/
+
+# Python 构建与打包产物
+build/
+dist/
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+# Python 测试、类型检查与质量工具缓存
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+.hypothesis/
+.tox/
+.nox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Jupyter 临时文件
+.ipynb_checkpoints/
+
+# Java / Maven / Gradle 构建产物
+target/
+.gradle/
+out/
+*.class
+
+# 日志、临时文件和本地数据库
+*.log
+*.tmp
+*.temp
+*.sqlite
+*.sqlite3
+*.db
+
+# 本地环境变量与敏感配置（示例文件允许提交）
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# 测试和运行时临时目录
+.cache/
+tmp/
+temp/
+
