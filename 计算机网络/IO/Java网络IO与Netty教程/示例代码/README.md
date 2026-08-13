@@ -10,6 +10,8 @@
 | Netty 文本 Echo | `note.io.netty.echo.NettyEchoServer` / `NettyEchoClient` | 9003 |
 | Netty 自定义协议 | `note.io.netty.protocol.ProtocolServer` / `ProtocolClient` | 9004 |
 | Netty 聊天室 | `note.io.netty.chat.NettyChatServer` / `NettyChatClient` | 9005 |
+| Netty HTTP | `note.io.netty.http.NettyHttpServer` | 9006 |
+| Netty WebSocket | `note.io.netty.websocket.NettyWebSocketServer` | 9007 |
 
 ## 运行
 
@@ -56,3 +58,5 @@ mvn -q org.codehaus.mojo:exec-maven-plugin:3.5.0:java '-Dexec.mainClass=note.io.
 3. 运行 Netty 聊天室，开两个客户端观察 `ChannelGroup` 广播。
 4. 运行自定义协议，再执行 `mvn test`，对照第 10、13 章。
 5. 把 `ReliableHandlers` 加入自己的 Pipeline，实验心跳和背压。
+6. 运行 HTTP 服务，用 PowerShell 调用 `/health` 与 `/echo`。
+7. 运行 WebSocket 服务，在两个浏览器 Console 中连接 `/ws` 并互发消息。

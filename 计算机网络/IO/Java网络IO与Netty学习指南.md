@@ -29,9 +29,15 @@
 
 ### 第三阶段：走向可用的网络服务
 
-11. [[Java网络IO与Netty教程/11-异步任务背压与线程切换|异步任务、背压与线程切换]]
-12. [[Java网络IO与Netty教程/12-心跳重连安全与性能|心跳、重连、安全与性能]]
-13. [[Java网络IO与Netty教程/13-测试排错实战与面试问答|测试、排错、实战与面试问答]]
+12. [[Java网络IO与Netty教程/11-异步任务背压与线程切换|异步任务、背压与线程切换]]
+13. [[Java网络IO与Netty教程/12-心跳重连安全与性能|心跳、重连、安全与性能]]
+14. [[Java网络IO与Netty教程/13-测试排错实战与面试问答|测试、排错、实战与面试问答]]
+
+### 第四阶段：上层协议与源码进阶
+
+15. [[Java网络IO与Netty教程/14-Netty实现HTTP服务|用 Netty 实现 HTTP 服务]]
+16. [[Java网络IO与Netty教程/15-WebSocket长连接实战|WebSocket 长连接实战]]
+17. [[Java网络IO与Netty教程/16-ServerBootstrap启动与连接建立源码链路|ServerBootstrap 启动与连接建立源码链路]]
 
 ------
 
@@ -55,3 +61,5 @@
 - 能设计长度字段协议，并防御畸形长度、粘包、拆包和内存泄漏。
 - 能避免阻塞 EventLoop，并用水位线、可写状态或读开关处理背压。
 - 能用 `EmbeddedChannel` 为编解码器写单元测试，并根据日志定位常见故障。
+- 能解释 HTTP 编解码、请求聚合、Keep-Alive 与 WebSocket Upgrade 如何映射到 Pipeline。
+- 能从 `ServerBootstrap.bind()` 追踪到服务端 Channel 注册、端口绑定和子 Channel 接入 worker EventLoop。
