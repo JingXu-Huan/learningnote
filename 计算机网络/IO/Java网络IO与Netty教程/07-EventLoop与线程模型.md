@@ -40,9 +40,7 @@ select/处理就绪 IO
 10:00:03  A 的 JDBC 返回，EventLoop 才继续处理 B
 ```
 
-所以“一个连接卡住”经常表现成“偶尔有很多连接一起慢”。正确做法不是给 IO 线程组盲目加线程，而是把确实会阻塞的业务移出 EventLoop，或改为异步客户端。
-
-在 Netty 4.2 中，IO 线程组与具体的 NIO IO 实现被拆开了：使用 `MultiThreadIoEventLoopGroup` 管理线程，使用 `NioIoHandler.newFactory()` 提供 Selector 实现。旧的 `NioEventLoopGroup` 仍可见，但已标记为 deprecated。
+所以“一个连接卡住”经常表现成“偶尔有很多连接一起慢”。正确做法不是给 `NioEventLoopGroup` 盲目加线程，而是把确实会阻塞的业务移出 EventLoop，或改为异步客户端。
 
 ## 7.3 教程代码：证明事件线程固定
 
@@ -127,12 +125,11 @@ ctx.channel().closeFuture().addListener(future ->
 
 ## 7.7 官方 API
 
-- [EventLoop](https://netty.io/4.2/api/io/netty/channel/EventLoop.html)
-- [MultiThreadIoEventLoopGroup](https://netty.io/4.2/api/io/netty/channel/MultiThreadIoEventLoopGroup.html)
-- [NioIoHandler](https://netty.io/4.2/api/io/netty/channel/nio/NioIoHandler.html)
-- [DefaultEventExecutorGroup](https://netty.io/4.2/api/io/netty/util/concurrent/DefaultEventExecutorGroup.html)
-- [ChannelHandler.Sharable](https://netty.io/4.2/api/io/netty/channel/ChannelHandler.Sharable.html)
-- [AttributeKey](https://netty.io/4.2/api/io/netty/util/AttributeKey.html)
+- [EventLoop](https://netty.io/4.1/api/io/netty/channel/EventLoop.html)
+- [NioEventLoopGroup](https://netty.io/4.1/api/io/netty/channel/nio/NioEventLoopGroup.html)
+- [DefaultEventExecutorGroup](https://netty.io/4.1/api/io/netty/util/concurrent/DefaultEventExecutorGroup.html)
+- [ChannelHandler.Sharable](https://netty.io/4.1/api/io/netty/channel/ChannelHandler.Sharable.html)
+- [AttributeKey](https://netty.io/4.1/api/io/netty/util/AttributeKey.html)
 
 ## 7.8 知识问答
 

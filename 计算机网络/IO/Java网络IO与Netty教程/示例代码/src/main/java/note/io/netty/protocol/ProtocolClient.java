@@ -4,8 +4,7 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.MultiThreadIoEventLoopGroup;
-import io.netty.channel.nio.NioIoHandler;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
@@ -14,8 +13,7 @@ public final class ProtocolClient {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        MultiThreadIoEventLoopGroup group =
-                new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+        NioEventLoopGroup group = new NioEventLoopGroup();
         try {
             Bootstrap bootstrap = new Bootstrap()
                     .group(group)

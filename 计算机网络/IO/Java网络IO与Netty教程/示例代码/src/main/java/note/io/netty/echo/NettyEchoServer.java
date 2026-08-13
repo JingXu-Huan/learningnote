@@ -7,8 +7,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.MultiThreadIoEventLoopGroup;
-import io.netty.channel.nio.NioIoHandler;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.LineBasedFrameDecoder;
@@ -24,10 +23,8 @@ public final class NettyEchoServer {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        MultiThreadIoEventLoopGroup boss =
-                new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
-        MultiThreadIoEventLoopGroup worker =
-                new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+        NioEventLoopGroup boss = new NioEventLoopGroup(1);
+        NioEventLoopGroup worker = new NioEventLoopGroup();
         try {
             ServerBootstrap bootstrap = new ServerBootstrap()
                     .group(boss, worker)
@@ -40,10 +37,8 @@ public final class NettyEchoServer {
                         protected void initChannel(SocketChannel channel) {
                             channel.pipeline()
                                     .addLast(new LineBasedFrameDecoder(1024))
-                                    .addLast(new StringDecoder(
-                                            StandardCharsets.UTF_8))
-                                    .addLast(new StringEncoder(
-                                            StandardCharsets.UTF_8))
+                                    .addLast(new StringDecoder(StandardCharsets.UTF_8))
+                                    .addLast(new StringEncoder(StandardCharsets.UTF_8))
                                     .addLast(new EchoHandler());
                         }
                     });

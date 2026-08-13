@@ -113,7 +113,7 @@ key.interestOps(key.interestOps() & ~SelectionKey.OP_WRITE);
 
 | 手写 NIO | Netty |
 | --- | --- |
-| `Selector` + 循环线程 | `MultiThreadIoEventLoopGroup` + `NioIoHandler` |
+| `Selector` + 循环线程 | `NioEventLoop` |
 | `SocketChannel` | `NioSocketChannel` |
 | `SelectionKey.attachment` | `ChannelPipeline` 与 Channel 状态 |
 | if/else 分发事件 | Pipeline 传播事件 |
@@ -127,8 +127,7 @@ Netty 不是另一套网络原理，而是把这些易错细节封装成稳定�
 - [SelectionKey](https://www.apiref.com/java11-zh/java.base/java/nio/channels/SelectionKey.html)
 - [SelectableChannel.register](https://www.apiref.com/java11-zh/java.base/java/nio/channels/SelectableChannel.html#register(java.nio.channels.Selector,int,java.lang.Object))
 - [Selector.wakeup](https://www.apiref.com/java11-zh/java.base/java/nio/channels/Selector.html#wakeup())
-- [Netty MultiThreadIoEventLoopGroup](https://netty.io/4.2/api/io/netty/channel/MultiThreadIoEventLoopGroup.html)
-- [Netty NioIoHandler](https://netty.io/4.2/api/io/netty/channel/nio/NioIoHandler.html)
+- [Netty NioEventLoop](https://netty.io/4.1/api/io/netty/channel/nio/NioEventLoop.html)
 
 ## 4.7 知识问答
 

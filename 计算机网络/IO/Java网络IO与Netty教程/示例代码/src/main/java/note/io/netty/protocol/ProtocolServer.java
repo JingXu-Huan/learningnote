@@ -7,8 +7,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.MultiThreadIoEventLoopGroup;
-import io.netty.channel.nio.NioIoHandler;
+import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import note.io.netty.reliable.ReliableHandlers;
@@ -20,10 +19,8 @@ public final class ProtocolServer {
     }
 
     public static void main(String[] args) throws InterruptedException {
-        MultiThreadIoEventLoopGroup boss =
-                new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
-        MultiThreadIoEventLoopGroup worker =
-                new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+        NioEventLoopGroup boss = new NioEventLoopGroup(1);
+        NioEventLoopGroup worker = new NioEventLoopGroup();
         try {
             ServerBootstrap bootstrap = new ServerBootstrap()
                     .group(boss, worker)
