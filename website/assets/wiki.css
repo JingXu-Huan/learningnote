@@ -20,6 +20,13 @@ header h1 { font-size: 1rem; font-weight: 650; }
 .wiki-tree a[aria-current="page"] { background: var(--accent); color: var(--wiki-accent); font-weight: 600; }
 .wiki-tree a:focus-visible, .wiki-tree summary:focus-visible { outline-offset: -2px; }
 .wiki-article { padding-top: 1.25rem; min-width: 0; }
+/* Let the reading column grow with desktop space; retain the theme's width toggle. */
+@media (min-width: 1280px) {
+  .layout-fixed .container-wrapper { max-width: 120rem; padding-inline: 1rem; }
+  .layout-fixed [data-slot="sidebar-wrapper"] { max-width: none; padding-inline: 0; }
+  .wiki-article { max-width: 76rem; padding-inline: clamp(1.5rem, 2vw, 3rem); }
+  .layout-full .wiki-article { max-width: 96rem; }
+}
 .wiki-page-tools { display: flex; justify-content: space-between; align-items: start; gap: 1rem; margin-bottom: 2rem; font-size: 0.8rem; color: var(--muted-foreground); }
 .wiki-breadcrumbs { display: flex; flex-wrap: wrap; gap: 0.45rem; min-width: 0; }
 .wiki-source-link { flex-shrink: 0; color: var(--wiki-accent); }
