@@ -1,0 +1,82 @@
+site_name: 景旭的编程笔记
+site_description: 编程学习、课程教程与后端面试复习
+site_author: JingXu
+site_url: https://jingxu-huan.github.io/learningnote/
+repo_url: https://github.com/JingXu-Huan/learningnote
+repo_name: JingXu-Huan/learningnote
+edit_uri: edit/master/
+# Existing bootstrap directory; the hook replaces it with filtered note copies
+# before MkDocs discovers any pages or static files.
+docs_dir: website
+site_dir: .cache/pages/site
+use_directory_urls: true
+hooks:
+  - website/hooks.py
+
+theme:
+  name: material
+  language: zh
+  font: false
+  icon:
+    logo: material/book-open-page-variant
+  palette:
+    - media: '(prefers-color-scheme: light)'
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: 切换深色模式
+    - media: '(prefers-color-scheme: dark)'
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: 切换浅色模式
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.prune
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.view
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+      slugify: !!python/name:markdown.extensions.toc.slugify_unicode
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - assets/mathjax.js
+  - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+
+validation:
+  links:
+    # Existing notes contain historical heading anchors. Keep those visible
+    # without making unrelated old anchors fail the publication pipeline.
+    anchors: info
