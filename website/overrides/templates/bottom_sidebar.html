@@ -1,0 +1,8 @@
+{% from "templates/wiki_navigation.html" import wiki_tree with context %}
+<dialog id="bottom-sidebar" class="wiki-mobile-menu" aria-label="笔记目录" onclick="onBottomSidebarDialogClick(event)">
+  <div class="wiki-menu-heading">
+    <a href="{{ '.' | url }}">{{ config.site_name }}</a>
+    <button type="button" onclick="document.getElementById('bottom-sidebar').close()" aria-label="关闭目录">关闭</button>
+  </div>
+  <nav aria-label="笔记目录" class="wiki-navigation">{{ wiki_tree(nav) }}</nav>
+</dialog>

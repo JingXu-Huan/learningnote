@@ -1,0 +1,16 @@
+<article class="w-full wiki-article" view-transition-name="page">
+  <div class="wiki-page-tools">
+    <nav aria-label="当前位置" class="wiki-breadcrumbs">
+      <a href="{{ '.' | url }}">首页</a>
+      {% for ancestor in page.ancestors | reverse %}<span aria-hidden="true">/</span><span>{{ ancestor.title }}</span>{% endfor %}
+    </nav>
+    {% if page.edit_url %}
+    <a class="wiki-source-link" href="{{ page.edit_url | replace('/edit/master/', '/blob/master/') }}" target="_blank" rel="noopener noreferrer">查看源码</a>
+    {% endif %}
+  </div>
+  {% if page.meta.summary %}<p class="wiki-summary">{{ page.meta.summary }}</p>{% endif %}
+  <div class="typography w-full flex-1">{% if '<h1' not in page.content %}<h1>{{ page.title }}</h1>{% endif %}{{ page.content }}</div>
+  <script>
+    document.querySelectorAll('article h2, article h3').forEach((header) => toc.observer.observe(header));
+  </script>
+</article>

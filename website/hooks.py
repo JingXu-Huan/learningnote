@@ -254,6 +254,10 @@ def navigation(paths: list[str], library: Library) -> list:
 
 def on_config(config):
     global LIBRARY
+    for plugin in config.plugins.values():
+        if type(plugin).__module__ == "shadcn.plugins.search":
+            # Generated copies have no Git history and dates are not displayed.
+            plugin.has_commits = False
     expected = ROOT / ".cache" / "pages" / "docs"
     docs = expected.resolve()
     # Refuse symlink/reparse-point redirection or deletion outside our build area.
@@ -301,7 +305,7 @@ def on_config(config):
             "",
             "## 按目录浏览",
             "",
-            f"当前收录 **{len(paths)} 篇** Markdown 笔记。顶部选择大类，侧栏展开主题，右侧查看本页目录。",
+            f"当前收录 **{len(paths)} 篇** Markdown 笔记。左侧按目录展开主题，右侧查看本页目录；手机上通过顶部菜单浏览。",
             "",
             "| 目录 | 笔记数 |",
             "| --- | ---: |",
@@ -342,7 +346,8 @@ def on_config(config):
     (docs / "catalogue.md").write_text("\n".join(catalogue) + "\n", encoding="utf-8")
     assets = docs / "assets"
     assets.mkdir()
-    shutil.copyfile(ROOT / "website" / "assets" / "mathjax.js", assets / "mathjax.js")
+    for name in ("mathjax.js", "wiki.js", "wiki.css", "search-worker.js"):
+        shutil.copyfile(ROOT / "website" / "assets" / name, assets / name)
     config.nav = navigation(paths, LIBRARY)
     config.markdown_extensions.append(WikiLinks())
     LOGGER.info(
@@ -391,12 +396,40 @@ def on_page_content(html, page, config, files):
 
 
 def on_page_context(context, page, config, nav):
+    # shadcn 0.12.1 queues source copies even when hide_source_files=True.
+    # Keep the source hidden and use GitHub source links instead of local copies.
+    for plugin in config.plugins.values():
+        if type(plugin).__module__ == "shadcn.plugins.search":
+            plugin.raw_markdown.clear()
     source = LIBRARY.sources.get(page.file.src_uri)
     if source:
         page.edit_url = config.repo_url + "/edit/master/" + quote(source, safe="/")
     else:
         page.edit_url = None
     return context
+
+
+def on_env(env, config, files):
+    translations = {
+        "Menu": "目录",
+        "Toggle Menu": "打开目录",
+        "Toggle menu": "打开目录",
+        "Toggle theme": "切换深浅色",
+        "Toggle layout": "切换阅读宽度",
+        "On This Page": "本页目录",
+        "Previous": "上一页",
+        "Next": "下一页",
+        "Search documentation...": "搜索笔记…",
+        "Search...": "搜索…",
+        "Copy Page": "复制内容",
+    }
+    fallback = env.globals.get("_", lambda message: message)
+    env.globals["_"] = lambda message: translations.get(message) or fallback(message)
+    return env
+
+
+def on_post_page(output, page, config):
+    return output.replace('<html lang="en">', '<html lang="zh-CN">', 1)
 
 
 def on_post_build(config):

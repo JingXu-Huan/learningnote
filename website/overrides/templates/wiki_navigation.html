@@ -1,0 +1,16 @@
+{% macro wiki_tree(items) -%}
+<ul class="wiki-tree">
+  {% for item in items %}
+  <li>
+    {% if item.is_section %}
+    <details{% if item.active %} open{% endif %}>
+      <summary title="{{ item.title }}">{{ item.title }}</summary>
+      {{ wiki_tree(item.children) }}
+    </details>
+    {% else %}
+    <a href="{{ item.url | url }}" title="{{ item.title }}"{% if item.active %} aria-current="page"{% endif %}>{{ item.title }}</a>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{%- endmacro %}

@@ -4,6 +4,14 @@
 
 笔记贡献流程见仓库根目录的[贡献指南](../CONTRIBUTING.md)。本页说明站点维护与构建方式。
 
+## 阅读主题
+
+使用 `mkdocs-shadcn==0.12.1`，版本已核对 PyPI 并固定。主题提供 Geist 字体、浅色与深色模式、阅读目录和代码高亮。通过 `website/overrides/` 适配中文控件、多层目录、移动端菜单与搜索，并保留每篇笔记的 GitHub 源码入口。
+
+发布路由沿用源文件路径的稳定哈希。只复制明确列出的站点运行资产，不复制仓库附件或原始 Markdown。shadcn 0.12.1 的源码复制队列由构建 hook 清除，最终产物检查仍禁止 `.md` 等源文件。
+
+搜索复用 MkDocs 生成的正文索引，在 Web Worker 中匹配中文短语和英文关键词，优先返回标题匹配。索引在第一次搜索时加载，避免每次阅读都下载索引；结果最多显示 30 条。
+
 ## 发布范围
 
 - Git 跟踪的 Markdown 学习笔记，以及本地预览时未被 Git 忽略的新笔记。
@@ -12,7 +20,7 @@
 - 排除隐藏目录、AGENTS.md、CLAUDE.md 和 website 下的站点维护文档。
 - 原始笔记不改写；构建时在 .cache/pages/docs 中生成副本及首页、总目录。
 - Obsidian 双向链接转换为站内链接；缺失或无法唯一确定的笔记显示提示，报告写到 .cache/pages/unresolved-links.txt。
-- Mermaid、数学公式、表格、代码高亮和任务列表由阅读主题支持。Mermaid 和 MathJax 的浏览器运行库使用公共 CDN；主题自身的样式、脚本与图标属于站点运行资源。
+- Mermaid、数学公式、表格、代码高亮和任务列表均保留。Mermaid 12.0.0 和 MathJax 的浏览器运行库使用公共 CDN；图表随深浅色切换重新绘制。主题自身的字体、样式、脚本与图标属于站点运行资源。
 
 ## 本地预览（PowerShell）
 
@@ -28,6 +36,7 @@ python -m venv .venv
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s website -p 'test_*.py'
+node --test website/test_search.js
 .\.venv\Scripts\python.exe -m mkdocs build --strict
 ```
 
@@ -41,4 +50,4 @@ Pages 发布来源使用 GitHub Actions（build_type=workflow），部署使用�
 
 依赖版本和 Action 提交固定。更新时同时验证链接转换测试与完整文档构建。外部历史链接和原笔记中的旧标题锚点不在本次内容修复范围。
 
-参考：[GitHub Pages 自定义工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)、[MkDocs 配置](https://www.mkdocs.org/user-guide/configuration/)、[Material 图表](https://squidfunk.github.io/mkdocs-material/reference/diagrams/)、[Material 公式](https://squidfunk.github.io/mkdocs-material/reference/math/)。
+参考：[GitHub Pages 自定义工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)、[MkDocs 配置](https://www.mkdocs.org/user-guide/configuration/)、[shadcn 主题配置](https://asiffer.github.io/mkdocs-shadcn/get_started/)、[Mermaid](https://mermaid.js.org/)。

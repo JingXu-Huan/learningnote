@@ -1,0 +1,17 @@
+<button class="wiki-search-trigger" type="button" onclick="onSearchBarClick(event)" aria-haspopup="dialog" aria-controls="search-dialog">
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+  <span>搜索笔记</span><kbd>Ctrl K</kbd>
+</button>
+<dialog id="search-dialog" class="wiki-search-dialog" aria-label="搜索笔记" onclick="onSearchDialogClick(event)">
+  <div class="wiki-search-heading">
+    <label for="mkdocs-search-query">搜索笔记</label>
+    <button type="button" onclick="document.getElementById('search-dialog').close()" aria-label="关闭搜索">关闭</button>
+  </div>
+  <input id="mkdocs-search-query" type="search" placeholder="搜索主题、概念或面试题…" autocomplete="off" autofocus>
+  <div id="mkdocs-search-results" data-no-results-text="没有找到相关笔记，请换个关键词。" aria-live="polite"></div>
+  <p class="wiki-search-help">输入关键词搜索，按 Esc 关闭。</p>
+</dialog>
+<script>
+  document.removeEventListener("keydown", searchShortcutHandler);
+  document.addEventListener("keydown", searchShortcutHandler);
+</script>

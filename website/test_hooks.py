@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import markdown
@@ -112,6 +113,23 @@ class PublicationTests(unittest.TestCase):
         nav = hooks.navigation(list(hooks.LIBRARY.routes), hooks.LIBRARY)
         self.assertEqual(nav[:2], [{"首页": "index.md"}, {"全部笔记": "catalogue.md"}])
         self.assertNotIn("贡献指南", str(nav))
+
+    def test_shadcn_cannot_publish_queued_markdown_sources(self):
+        plugin_type = type("SearchPlugin", (), {"__module__": "shadcn.plugins.search"})
+        plugin = plugin_type()
+        plugin.raw_markdown = {"original.md": "site/notes/source.md"}
+        config = SimpleNamespace(
+            plugins={"search": plugin}, repo_url="https://github.com/example/notes"
+        )
+        hooks.on_page_context({}, self.page, config, [])
+        self.assertFalse(plugin.raw_markdown)
+        self.assertIn("/edit/master/", self.page.edit_url)
+
+    def test_chinese_document_language_does_not_rewrite_article_content(self):
+        output = '<html lang="en"><body>example lang="en"</body></html>'
+        result = hooks.on_post_page(output, self.page, Mock())
+        self.assertTrue(result.startswith('<html lang="zh-CN">'))
+        self.assertIn('example lang="en"', result)
 
 
 if __name__ == "__main__":

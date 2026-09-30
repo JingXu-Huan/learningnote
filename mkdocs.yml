@@ -14,39 +14,20 @@ hooks:
   - website/hooks.py
 
 theme:
-  name: material
-  language: zh
-  font: false
-  icon:
-    logo: material/book-open-page-variant
-  palette:
-    - media: '(prefers-color-scheme: light)'
-      scheme: default
-      primary: teal
-      accent: teal
-      toggle:
-        icon: material/weather-night
-        name: 切换深色模式
-    - media: '(prefers-color-scheme: dark)'
-      scheme: slate
-      primary: teal
-      accent: teal
-      toggle:
-        icon: material/weather-sunny
-        name: 切换浅色模式
-  features:
-    - navigation.tabs
-    - navigation.sections
-    - navigation.prune
-    - navigation.top
-    - navigation.footer
-    - search.highlight
-    - search.suggest
-    - content.code.copy
-    - content.action.view
+  name: shadcn
+  custom_dir: website/overrides
+  # Chinese controls are supplied by our overrides; upstream has no zh catalog.
+  locale: en
+  show_title: true
+  show_stargazers: false
+  hide_source_files: true
+  search_index_only: true
+  topbar_sections: false
+  katex_options: {}
 
 plugins:
   - search:
+      min_search_length: 1
       lang:
         - zh
         - en
@@ -62,7 +43,9 @@ markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.details
-  - pymdownx.highlight
+  - codehilite
+  - pymdownx.highlight:
+      css_class: codehilite
   - pymdownx.tasklist:
       custom_checkbox: true
   - pymdownx.superfences:
@@ -74,6 +57,10 @@ markdown_extensions:
 extra_javascript:
   - assets/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js
+  - assets/wiki.js
+
+extra_css:
+  - assets/wiki.css
 
 validation:
   links:
