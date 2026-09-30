@@ -8,7 +8,7 @@
 
 - 每个微服务都有很多重复的配置，维护成本高。
 
-当然，我们的微服务不能想重启就重启吧...
+频繁重启微服务会影响可用性，因此需要支持配置动态更新。
 
 ## 添加对应的依赖😊
 
@@ -33,7 +33,7 @@
 
     例如：共享的`jdbc`配置。这些配置项在各个微服务之间是差不多的
 
-    不同的部分，我们在`application.yml`重新配置就好了，通过引用的方式获取配置信息。
+    差异配置可以在各服务的 `application.yml` 中定义，通过引用获取对应的配置信息。
 
     ```yaml
     spring:
@@ -41,7 +41,7 @@
         url: jdbc:mysql://${hm.db.host}:${hm.db.port:3306}/${hm.db.database}?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
         driver-class-name: com.mysql.cj.jdbc.Driver
         username: ${hm.db.user:root}
-        password: ${hm.db.pw:202430904jingXu}
+        password: ${DB_PASSWORD}
       cloud:
         nacos:
           discovery:
@@ -57,7 +57,7 @@
 
 - **微服务拉取配置**
   
-  接下来，我们要在微服务拉取共享配置。
+  接下来，在微服务中拉取共享配置。
   
   将拉取到的共享配置与本地的`application.yaml`配置合并，完成项目上下文的初始化。
   
@@ -65,7 +65,7 @@
   
   也就是说引导阶段，`application.yaml`文件尚未读取，根本不知道`nacos` 地址，该如何去加载`nacos`中的配置文件呢？
   
-  `SpringCloud`在初始化上下文的时候会先读取一个名为`bootstrap.yaml`(或者`bootstrap.properties`)的文件，如果我们将`nacos`地址配置到`bootstrap.yaml`中，那么在项目引导阶段就可以读取`nacos`中的配置了。
+  `SpringCloud`在初始化上下文的时候会先读取一个名为`bootstrap.yaml`(或者`bootstrap.properties`)的文件，如果将`nacos`地址配置到`bootstrap.yaml`中，那么在项目引导阶段就可以读取`nacos`中的配置了。
   
   ```yaml
   spring:

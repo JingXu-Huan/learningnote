@@ -43,7 +43,7 @@
   method.invoke(myObject);  // 调用 myObject 对象的 sayHello 方法 
   
   //invoke() 是 java.lang.reflect.Method 类中的方法，用来通过反射调用方法。
-  //如果是static方法 我们使用invoke(null);
+  //如果是static方法，使用invoke(null);
   //如需传递参数  invoke(,"在这里写args")
   //否则 需要传递实例对象myObject
   
@@ -51,7 +51,7 @@
   method.setAccessible(true);
   ```
 
-  在反射中，我们通常使用类的构造器来创建类的实例。
+  在反射中，通常使用类的构造器来创建类的实例。
 
 ### 使用反射创建类的实例
   * ```java

@@ -10,7 +10,7 @@
 - 它关注的是 **agent orchestration**
 - 如果你刚开始接触 agent，应该先熟悉 models 和 tools，甚至先从 LangChain agents 入手
 
-这正是我们把它放到第 5 天的原因。
+因此，学习路线将这一主题安排在第 5 天。
 
 ## 今天只学三个词
 
@@ -58,7 +58,7 @@ LangGraph 不是只是把代码画成流程图。
 - 想显式地定义图结构，用 **Graph API**
 - 想保留普通 Python 控制流、少改已有代码，用 **Functional API**
 
-如果你是新手，我建议：
+初学者可以按以下顺序练习：
 
 - **先学 Graph API**
 - 学会后再看 Functional API

@@ -129,7 +129,7 @@ protected void channelRead0(
 }
 ```
 
-不要问“Socket 为什么会给我 String”，应该问：**Pipeline 前面哪个 Handler 把 ByteBuf 变成了 String？**
+不要问“Socket 为什么会输出 String”，应该问：**Pipeline 前面哪个 Handler 把 ByteBuf 变成了 String？**
 
 ------
 

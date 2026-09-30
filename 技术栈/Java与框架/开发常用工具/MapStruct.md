@@ -115,9 +115,9 @@ public interface UserMapper {
             @Mapping(source = "myLikes", target = "likes",qualifiedByName = "myCover")
     })
     UserVO toVO(UserDO userDO);
-    //这里的default方法是mp无法转换时 需要我们自己去实现
+    //这里的default方法是mp无法转换时 需要自行实现
     //mp默认会根据你的方法签名寻找合适的转换方法
-    //或是我们不希望通过mp的实现类做转换
+    //或者不希望通过mp的实现类做转换
     default List<String> likes(String[] myLikes) {
         List<String> list = new ArrayList<>();
         list.addAll(Arrays.asList(myLikes));

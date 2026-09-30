@@ -1,7 +1,8 @@
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import markdown
 from bs4 import BeautifulSoup
@@ -48,9 +49,67 @@ class PublicationTests(unittest.TestCase):
             ".cache/test.md",
             "website/README.md",
             "../escape.md",
+            "资料归档/其它/教程.md",
+            "资料归档/其它/Collection/注释.md",
+            "技术栈/归档/旧教程.md",
+            "技术栈/草稿/待整理.md",
+            "技术栈/drafts/chapter.md",
+            "技术栈/Go语言/Untitled.md",
+            "技术栈/Go语言/Untitled 1.MD",
+            "技术栈/Go语言/未命名 2.md",
+            "技术栈/Go语言/草稿.md",
+            "tmp/教程.md",
+            "README.md",
+            "2026-06-19.md",
+            "个人资料/介绍.md",
         ]:
             self.assertFalse(hooks.is_note(path), path)
-        self.assertTrue(hooks.is_note("教程/章节.MD"))
+        for path in [
+            "技术栈/教程/章节.MD",
+            "计算机网络/IO/教程.md",
+            "Linux/命令.md",
+            "项目与成长/面经/复习.md",
+            "CONTRIBUTING.md",
+        ]:
+            self.assertTrue(hooks.is_note(path), path)
+
+    def test_empty_heading_only_and_attachment_only_notes_are_not_selected(self):
+        paths = {
+            "技术栈/Go语言/教程.md": "# 教程\n\n学习 channel 的同步机制。\n",
+            "技术栈/Go语言/空白.md": "\n \n",
+            "技术栈/Go语言/占位.md": "# 待补充\n\n------\n<!-- 草稿 -->\n",
+            "技术栈/Go语言/截图.md": "# 示例\n\n![截图](image.png)\n",
+            "资料归档/其它/教程.md": "# 教程\n\n归档正文。\n",
+            "README.md": "# 仓库说明\n\n维护内容。\n",
+        }
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, content in paths.items():
+                source = root / name
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text(content, encoding="utf-8")
+            with (
+                patch.object(hooks, "ROOT", root),
+                patch.object(
+                    hooks.subprocess,
+                    "check_output",
+                    return_value="\0".join(paths).encode("utf-8"),
+                ),
+            ):
+                selected = hooks.tracked_notes()
+        self.assertEqual(selected, ["技术栈/Go语言/教程.md"])
+        library = hooks.Library(selected)
+        self.assertEqual(set(library.sources.values()), set(selected))
+        self.assertNotIn("资料归档", str(hooks.navigation(selected, library)))
+
+    def test_short_real_chapters_keep_commands_and_learning_links(self):
+        for text in [
+            "# 查看节点\n\n```bash\nkubectl get nodes\n```\n",
+            "# 目录\n\n- [章节](chapter.md)\n",
+            "# 定义\n\n一个概念。\n",
+            "![截图](image.png) 对照[正文](chapter.md)学习。\n",
+        ]:
+            self.assertTrue(hooks.has_note_content(text))
 
     def test_links_with_chinese_spaces_alias_and_fragment(self):
         html = self.render("[[章节 (一)#内存 管理|地址转换]]")

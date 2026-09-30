@@ -103,7 +103,7 @@ python -m pip install --upgrade pip
 python -m pip install "fastapi[standard]"
 ```
 
-`fastapi[standard]` 会安装 FastAPI CLI、Uvicorn 及常用标准依赖。团队项目应使用 `pyproject.toml` 或锁文件固定版本，避免“我的机器可以运行”。
+`fastapi[standard]` 会安装 FastAPI CLI、Uvicorn 及常用标准依赖。团队项目应使用 `pyproject.toml` 或锁文件固定版本，避免只在单台开发机器上可以运行。
 
 ### 2.2 第一个接口
 

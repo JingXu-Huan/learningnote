@@ -17,7 +17,7 @@
 | --- | --- |
 | `channel()` | 对应哪一个 Channel |
 | `selector()` | 被注册到了哪一个 Selector |
-| `interestOps()` | 我希望关注哪些事件，例如 `OP_READ`、`OP_WRITE` |
+| `interestOps()` | 声明需要关注的事件，例如 `OP_READ`、`OP_WRITE` |
 | `readyOps()` | 底层已经准备好的事件 |
 | `attachment()` | 这条连接自己的上下文数据 |
 

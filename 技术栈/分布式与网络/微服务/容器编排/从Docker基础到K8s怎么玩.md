@@ -159,7 +159,7 @@ replicas: 3
 
 ## 4. 本地学习 K8s 怎么搭环境
 
-如果你已经有 `Docker` 基础，我更推荐用 `kind` 学习：
+已有 `Docker` 基础时，可以使用 `kind` 学习：
 
 `kind` = `Kubernetes in Docker`
 
@@ -477,9 +477,7 @@ kubectl rollout history deployment/user-service -n dev
 
 ## 8. Docker Compose 和 K8s 的区别
 
-很多初学者会问：
-
-> 我都会 `docker-compose` 了，为什么还要学 `K8s`？
+一个常见问题是：掌握 `docker-compose` 后，为什么还需要学习 `K8s`？
 
 你可以这样理解：
 
@@ -522,7 +520,7 @@ kubectl rollout history deployment/user-service -n dev
 
 ## 9. 学 K8s 的推荐路线
 
-如果你已经有 `Docker` 基础，我建议按这个顺序学：
+已有 `Docker` 基础时，可以按以下顺序学习：
 
 ### 第一阶段：先把核心对象搞懂
 
@@ -573,14 +571,14 @@ kubectl rollout history deployment/user-service -n dev
 
 ## 10. 面试里可以怎么讲
 
-如果面试官问你会不会 `K8s`，你不要一上来背定义，可以这样讲：
+说明 `K8s` 能力时，可以从概念、实践和能力边界三个方面组织内容：
 
-> 我有 Docker 基础，理解镜像构建和容器运行。  
-> 在这个基础上，我把 K8s 理解为容器编排平台，核心是用 Deployment 管 Pod、副本和发布，用 Service 做服务发现和负载均衡，用 ConfigMap 和 Secret 做配置管理。  
-> 如果是 Spring Boot 微服务上 K8s，我会重点处理镜像化、配置外置、健康检查、服务暴露以及滚动发布。  
-> 本地我会用 kind 或 minikube 去练部署、日志排查和版本回滚。
+1. 说明镜像构建、容器运行与容器编排的关系。
+2. 解释 Deployment、Service、ConfigMap 和 Secret 分别解决的问题。
+3. 结合实际完成的 Spring Boot 部署，说明镜像化、配置外置、健康检查、服务暴露和滚动发布。
+4. 用 kind 或 minikube 的练习结果展示部署、日志排查和版本回滚能力，不把未完成的练习描述成已有经验。
 
-这段回答的好处是：
+这种组织方式的作用是：
 
 - 不是死背概念
 - 能体现工程落地思路
@@ -590,7 +588,7 @@ kubectl rollout history deployment/user-service -n dev
 
 ## 一个最小学习闭环
 
-如果你现在就想开始，我建议你今天只做这 4 步：
+首次实践可以先完成以下 4 步：
 
 1. 安装 `kind`、`kubectl`
 2. 起一个本地集群

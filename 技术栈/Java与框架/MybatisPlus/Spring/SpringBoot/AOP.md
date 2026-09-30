@@ -221,7 +221,7 @@ public void logPointcut() {}
 
 ---
 
-如果你想继续深入，我可以帮你拆：
+### 延伸学习主题
 
 * 🔥 Spring AOP vs AspectJ 区别（代理机制底层）
 * 🔥 JDK动态代理 vs CGLIB

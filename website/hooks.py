@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import posixpath
+import re
 import shutil
 import subprocess
 from collections import Counter
@@ -22,6 +23,8 @@ from mkdocs.utils import get_relative_url
 ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("mkdocs.pages")
 INTERNAL_NAMES = {"agents.md", "claude.md"}
+NOTE_ROOTS = {"技术栈", "计算机网络", "Linux", "项目与成长"}
+UNPUBLISHED_DIRECTORIES = {"资料归档", "归档", "草稿", "drafts", "tmp", "website"}
 
 
 def is_note(path: str) -> bool:
@@ -30,9 +33,23 @@ def is_note(path: str) -> bool:
         bool(parts)
         and PurePosixPath(path).suffix.lower() == ".md"
         and PurePosixPath(path).name.lower() not in INTERNAL_NAMES
-        and parts[0] != "website"
+        and (parts[0] in NOTE_ROOTS or path == "CONTRIBUTING.md")
+        and not any(part.casefold() in UNPUBLISHED_DIRECTORIES for part in parts[:-1])
+        and not re.fullmatch(
+            r"(?:untitled|未命名|草稿)(?:[\s_-]*\d+)?",
+            PurePosixPath(path).stem,
+            re.IGNORECASE,
+        )
         and not any(part.startswith(".") or part == ".." for part in parts)
     )
+
+
+def has_note_content(text: str) -> bool:
+    text = re.sub(r"<!--.*?-->", "", text, flags=re.DOTALL)
+    text = re.sub(r"^#{1,6}\s+.*$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s*(?:[-*_]\s*){3,}$", "", text, flags=re.MULTILINE)
+    text = re.sub(r"!\[[^\]\n]*\]\([^\)\n]*\)|!\[\[[^\]\n]+\]\]", "", text)
+    return bool(text.strip())
 
 
 class Library:
@@ -203,7 +220,15 @@ def tracked_notes() -> list[str]:
         ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z"],
         cwd=ROOT,
     ).decode("utf-8")
-    return sorted({path for path in output.split("\0") if is_note(path)})
+    return sorted(
+        {
+            path
+            for path in output.split("\0")
+            if is_note(path)
+            and (ROOT / path).is_file()
+            and has_note_content((ROOT / path).read_text(encoding="utf-8-sig"))
+        }
+    )
 
 
 def label(path: str) -> str:

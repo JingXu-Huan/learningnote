@@ -130,7 +130,7 @@ serverSocket.bind(new InetSocketAddress(9000));
 
 ### `register(selector, SelectionKey.OP_ACCEPT)`
 
-把服务端 Channel 注册到 Selector，并告诉 Selector：我关心新连接事件。
+把服务端 Channel 注册到 Selector，并向 Selector 声明需要关注新连接事件。
 
 常见事件包括：
 

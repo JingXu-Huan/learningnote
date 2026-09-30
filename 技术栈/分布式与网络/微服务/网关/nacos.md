@@ -147,7 +147,7 @@ public class LogGatewayFilterFactory extends AbstractGatewayFilterFactory<LogGat
 
 ```
 
-### 大多时候我们只需要按照默认的即可
+### 通常可以使用默认配置
 
 ---
 

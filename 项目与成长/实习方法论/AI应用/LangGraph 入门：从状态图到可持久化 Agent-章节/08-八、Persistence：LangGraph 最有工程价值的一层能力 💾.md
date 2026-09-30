@@ -1,6 +1,6 @@
 # 八、Persistence：LangGraph 最有工程价值的一层能力 💾
 
-如果说 LangGraph 哪块最值得工程师重点理解，我会优先说 persistence。
+Persistence 是学习 LangGraph 工程应用时需要重点理解的能力之一。
 
 因为这块直接决定：
 

@@ -1,6 +1,6 @@
 # 一、先说结论：为什么 LangGraph 不适合一上来就学 🧭
 
-这个结论不是我主观拍脑袋说的，官方定位本身就已经很明确：
+以下学习顺序依据 LangGraph 的官方定位组织：
 
 - LangGraph 是 **low-level orchestration framework**
 - 它关注的是 **long-running、stateful agents**

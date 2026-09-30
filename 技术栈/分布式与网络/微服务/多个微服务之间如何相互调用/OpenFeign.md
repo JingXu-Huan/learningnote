@@ -8,11 +8,11 @@
 
 * 购物车模块需要远程调用订单模块:
 
-  我们在购物车模块中引入`api`，在`api`模块中定义好 Feign的客户端；
+  在购物车模块中引入`api`，在`api`模块中定义好 Feign的客户端；
 
   在购物车模块需要调用时，`@Autowried` 注入客户端；
 
-  然后调用客户端(接口)的方法（就是使用feign帮助我们发送网络请求）。
+  然后调用客户端(接口)的方法（就是使用 Feign 发送网络请求）。
 
 ## `api`模块接口的定义😎
 
@@ -32,13 +32,13 @@ public interface ItemClient {
 
 * 为什么需要过滤器？
 
-  我们的单体项目如何在不同服务之间传递共享的信息？
+  微服务项目如何在不同服务之间传递共享的信息？
 
   * `TreadLocal`
 
 * 将单体项目拆分为微服务之后，显然，`TreadLocal`不能在多个微服务之间传递共享的信息。
 
-* 这时候，我们需要利用Feign中提供的一个拦截器接口：`RequestInterceptor`
+* 此时可以使用 Feign 提供的拦截器接口：`RequestInterceptor`
 
   ```java
   public interface RequestInterceptor {

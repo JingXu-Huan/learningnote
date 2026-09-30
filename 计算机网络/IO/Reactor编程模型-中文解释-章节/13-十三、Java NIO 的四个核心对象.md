@@ -141,7 +141,7 @@ if (key.isWritable()) {
 - `cancel()`：取消注册关系；
 - `wakeup()`：唤醒正在 `select()` 中等待的线程。
 
-`interestOps` 和 `readyOps` 不要混淆：前者是“我想关注什么”，后者是“现在发生了什么”。
+`interestOps` 和 `readyOps` 不要混淆：前者是“需要关注哪些事件”，后者是“现在发生了什么”。
 
 ---
 

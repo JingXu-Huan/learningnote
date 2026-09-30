@@ -31,7 +31,7 @@ FilterSecurityInterceptor              ← 最终权限校验（有没有角色/
 Controller
 ```
 
-> **理解要点**：每个过滤器各司其职，一个负责登录、一个负责权限检查、一个负责异常处理。我们可以插入自定义过滤器（比如 JWT 过滤器）来扩展功能。
+> **理解要点**：每个过滤器各司其职，一个负责登录、一个负责权限检查、一个负责异常处理。可以插入自定义过滤器（比如 JWT 过滤器）来扩展功能。
 
 ------
 
@@ -147,7 +147,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 ```
 
 ```java
-// LoginUser：我们自己封装的用户信息，实现 UserDetails 接口
+// LoginUser：自定义封装的用户信息，实现 UserDetails 接口
 @Data
 public class LoginUser implements UserDetails {
 

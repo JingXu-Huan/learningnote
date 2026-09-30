@@ -312,7 +312,7 @@ Database
 
 ---
 
-# 🚀 如果你想继续深入（建议）
+# 延伸学习主题
 
 这个点可以继续往三个“高频面试深水区”走：
 
@@ -321,5 +321,3 @@ Database
 ### 2️⃣ SimpleJpaRepository 内部实现（EntityManager细节）
 
 ### 3️⃣ 方法名解析 SQL 的完整流程（QueryLookupStrategy）
-
-说一声，我可以直接带你走源码级分析。
