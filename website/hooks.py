@@ -217,6 +217,8 @@ def note_link(path: str) -> str:
 def navigation(paths: list[str], library: Library) -> list:
     tree: dict = {}
     for path in paths:
+        if path == "CONTRIBUTING.md":
+            continue
         branch = tree
         parts = PurePosixPath(path).parts
         for directory in parts[:-1]:
@@ -244,7 +246,10 @@ def navigation(paths: list[str], library: Library) -> list:
             )
         return result
 
-    return [{"首页": "index.md"}, {"全部笔记": "catalogue.md"}, *walk(tree)]
+    nav = [{"首页": "index.md"}, {"全部笔记": "catalogue.md"}, *walk(tree)]
+    if "CONTRIBUTING.md" in library.routes:
+        nav.append({"贡献指南": library.routes["CONTRIBUTING.md"]})
+    return nav
 
 
 def on_config(config):
@@ -270,7 +275,12 @@ def on_config(config):
             original.read_text(encoding="utf-8-sig"), encoding="utf-8"
         )
 
-    groups = Counter(PurePosixPath(path).parts[0] for path in paths)
+    groups = Counter(
+        PurePosixPath(path).parts[0]
+        if len(PurePosixPath(path).parts) > 1
+        else "仓库文档"
+        for path in paths
+    )
     home = [
         "# 景旭的编程笔记",
         "",
@@ -308,13 +318,25 @@ def on_config(config):
             "",
         ]
     )
+    if "CONTRIBUTING.md" in LIBRARY.routes:
+        home.extend(
+            [
+                "## 参与贡献",
+                "",
+                (
+                    "欢迎纠正错误、补充解释和分享学习笔记。"
+                    "请先阅读[贡献指南](CONTRIBUTING.md)，按 Fork、主题分支和 PR 的流程提交。"
+                ),
+                "",
+            ]
+        )
     (docs / "index.md").write_text("\n".join(home), encoding="utf-8")
     catalogue = ["# 全部笔记", "", "按仓库目录排列；也可以使用侧栏和站内搜索。", ""]
     previous = None
     for path in paths:
         parent = str(PurePosixPath(path).parent)
         if parent != previous:
-            catalogue.extend([f"## {parent}", ""])
+            catalogue.extend([f"## {'仓库文档' if parent == '.' else parent}", ""])
             previous = parent
         catalogue.append("- " + note_link(path))
     (docs / "catalogue.md").write_text("\n".join(catalogue) + "\n", encoding="utf-8")

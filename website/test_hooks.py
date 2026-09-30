@@ -100,6 +100,19 @@ class PublicationTests(unittest.TestCase):
         path = "技术栈/操作系统/教程.md"
         self.assertEqual(hooks.Library([path]).routes[path], hooks.LIBRARY.routes[path])
 
+    def test_contribution_guide_has_one_named_navigation_entry(self):
+        paths = [*hooks.LIBRARY.routes, "CONTRIBUTING.md"]
+        library = hooks.Library(paths)
+        nav = hooks.navigation(paths, library)
+        self.assertEqual(nav[-1], {"贡献指南": library.routes["CONTRIBUTING.md"]})
+        self.assertEqual(str(nav).count(library.routes["CONTRIBUTING.md"]), 1)
+        self.assertNotIn("'CONTRIBUTING':", str(nav))
+
+    def test_navigation_without_contribution_guide_keeps_existing_entries(self):
+        nav = hooks.navigation(list(hooks.LIBRARY.routes), hooks.LIBRARY)
+        self.assertEqual(nav[:2], [{"首页": "index.md"}, {"全部笔记": "catalogue.md"}])
+        self.assertNotIn("贡献指南", str(nav))
+
 
 if __name__ == "__main__":
     unittest.main()

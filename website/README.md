@@ -2,6 +2,8 @@
 
 站点地址：https://jingxu-huan.github.io/learningnote/
 
+笔记贡献流程见仓库根目录的[贡献指南](../CONTRIBUTING.md)。本页说明站点维护与构建方式。
+
 ## 发布范围
 
 - Git 跟踪的 Markdown 学习笔记，以及本地预览时未被 Git 忽略的新笔记。
