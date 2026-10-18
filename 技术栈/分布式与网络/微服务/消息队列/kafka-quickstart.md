@@ -6,6 +6,8 @@
 
 > 本文已按二级标题拆分为独立章节，按需进入对应笔记阅读。
 
+> 深入学习可从[消息队列与 Kafka 学习路线](消息队列与Kafka学习路线.md)进入：新增架构设计、扩展与容量、大厂改造调研、源码及实验，并配有[交互式架构实验室](https://jingxu-huan.github.io/learningnote/visualizations/kafka-architecture/)。新专题按 Kafka 4.3 讲解；本快速上手的环境与客户端示例需结合各章节标注的版本阅读。
+
 ## 章节目录
 
 - [[kafka-quickstart-章节/01-一、核心概念对比|一、核心概念对比]]

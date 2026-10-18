@@ -25,7 +25,10 @@ LOGGER = logging.getLogger("mkdocs.pages")
 INTERNAL_NAMES = {"agents.md", "claude.md"}
 NOTE_ROOTS = {"技术栈", "计算机网络", "Linux", "项目与成长"}
 UNPUBLISHED_DIRECTORIES = {"资料归档", "归档", "草稿", "drafts", "tmp", "website"}
-VISUAL_PAGES = ("visualizations/ticket-architecture/index.html",)
+VISUAL_PAGES = (
+    "visualizations/ticket-architecture/index.html",
+    "visualizations/kafka-architecture/index.html",
+)
 
 
 def copy_visual_pages(docs: Path) -> None:
@@ -331,6 +334,7 @@ def on_config(config):
         "技术栈/操作系统/操作系统教程.md",
         "技术栈/Go语言/Go语言从0到1快速上手.md",
         "技术栈/分布式与网络/计算机网络/计算机网络知识总结.md",
+        "技术栈/分布式与网络/微服务/消息队列/消息队列与Kafka学习路线.md",
     ]:
         if path in LIBRARY.routes:
             home.append("- " + note_link(path))

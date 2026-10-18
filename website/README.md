@@ -26,6 +26,8 @@
 
 ## 本地预览（PowerShell）
 
+消息队列专题入口为[消息队列与 Kafka 学习路线](../技术栈/分布式与网络/微服务/消息队列/消息队列与Kafka学习路线.md)，配套[Kafka 架构实验室](https://jingxu-huan.github.io/learningnote/visualizations/kafka-architecture/)。独立交互页通过 `hooks.py` 的 `VISUAL_PAGES` 逐项允许发布，新增页面须同步覆盖白名单复制检查。
+
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r website/requirements.txt

@@ -22,7 +22,7 @@ spring:
       # acks: 消息确认级别
       # acks=0: Producer 不等待确认，最快但可能丢消息
       # acks=1: Leader 副本确认即可
-      # acks=all: 所有 ISR 副本确认，最安全但最慢
+      # acks=all: 满足当前 ISR 的复制确认条件；结合 minISR 与故障域评估可靠性和延迟
       acks: all
       retries: 3
       properties:

@@ -1,0 +1,2201 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="交互学习 Kafka 写入与复制、消费位点、分区扩容、容量规划及大厂架构演进。"
+    />
+    <title>Kafka 架构实验室 · 景旭的编程笔记</title>
+    <style>
+      :root {
+        --bg: #f4f6f9;
+        --paper: #fff;
+        --ink: #172b45;
+        --muted: #56667a;
+        --line: #dce3ed;
+        --blue: #1d4ed8;
+        --pale: #eef3ff;
+        --green: #14664d;
+        --green-bg: #edf7f2;
+        --amber: #87510b;
+        --amber-bg: #fff5e4;
+        --red: #a42c35;
+        --red-bg: #fff0f0;
+        --radius: 12px;
+        --sans: Geist, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        --mono: Consolas, "SFMono-Regular", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--bg);
+        font: 15px/1.7 var(--sans);
+      }
+      ::selection {
+        color: #fff;
+        background: var(--blue);
+      }
+      a {
+        color: var(--blue);
+        text-underline-offset: 4px;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      select,
+      input {
+        accent-color: var(--blue);
+        caret-color: var(--blue);
+      }
+      button,
+      a,
+      input,
+      select {
+        -webkit-tap-highlight-color: transparent;
+      }
+      :focus-visible {
+        outline: 3px solid #7a9df0;
+        outline-offset: 3px;
+      }
+      button {
+        cursor: pointer;
+        border: 1px solid var(--line);
+        background: var(--paper);
+        color: var(--ink);
+        border-radius: 7px;
+        padding: 8px 14px;
+      }
+      button:hover {
+        background: var(--pale);
+        border-color: #9fb4df;
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.45;
+      }
+      .primary {
+        background: var(--blue);
+        border-color: var(--blue);
+        color: #fff;
+      }
+      .primary:hover {
+        background: #173faa;
+        color: #fff;
+      }
+      input,
+      select {
+        min-width: 0;
+        border: 1px solid #a9b6c8;
+        color: var(--ink);
+        background: #fff;
+        padding: 8px 10px;
+        border-radius: 5px;
+      }
+      input[type="range"] {
+        width: 100%;
+        padding: 0;
+        border: 0;
+      }
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+      }
+      code,
+      .number {
+        font-family: var(--mono);
+        font-variant-numeric: tabular-nums;
+      }
+      p {
+        margin: 0 0 14px;
+      }
+      h1,
+      h2,
+      h3 {
+        line-height: 1.4;
+        text-wrap: balance;
+      }
+      h1 {
+        font-size: 26px;
+        letter-spacing: -0.025em;
+        margin: 0 0 6px;
+        font-weight: 650;
+      }
+      h2 {
+        font-size: 21px;
+        margin: 0 0 12px;
+      }
+      h3 {
+        font-size: 16px;
+        margin: 22px 0 8px;
+      }
+      header {
+        background: var(--paper);
+        border-bottom: 1px solid var(--line);
+      }
+      .header-inner {
+        max-width: 1520px;
+        margin: auto;
+        padding: 22px 32px 0;
+      }
+      .heading-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: center;
+      }
+      .subtitle,
+      .muted {
+        color: var(--muted);
+      }
+      .subtitle {
+        margin: 0;
+        font-size: 14px;
+      }
+      .back-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 18px;
+        font-size: 14px;
+      }
+      .tabs {
+        display: flex;
+        gap: 24px;
+        margin-top: 22px;
+        overflow: auto;
+        scrollbar-width: thin;
+        scrollbar-color: #a9b6c8 transparent;
+      }
+      .tabs button {
+        flex: 0 0 auto;
+        border: 0;
+        border-bottom: 3px solid transparent;
+        border-radius: 0;
+        padding: 11px 1px 13px;
+        color: var(--muted);
+        background: transparent;
+      }
+      .tabs button[aria-selected="true"] {
+        border-bottom-color: var(--blue);
+        color: var(--blue);
+        font-weight: 600;
+      }
+      main {
+        max-width: 1520px;
+        padding: 26px 32px 48px;
+        margin: auto;
+      }
+      .intro {
+        max-width: 78ch;
+        margin-bottom: 20px;
+      }
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 20px;
+        align-items: start;
+      }
+      .paper {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--line);
+      }
+      .toolbar label {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+        font-size: 14px;
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .diagram-wrap {
+        padding: 14px 8px 0;
+      }
+      .diagram {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      .diagram text {
+        font-family: var(--sans);
+        fill: var(--ink);
+      }
+      .diagram .node rect {
+        fill: var(--paper);
+        stroke: #a9b6c8;
+        stroke-width: 1.5;
+      }
+      .diagram .node .node-title {
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .diagram .node .node-sub {
+        font-size: 13px;
+        fill: var(--muted);
+      }
+      .diagram .node.active rect {
+        fill: var(--pale);
+        stroke: var(--blue);
+        stroke-width: 2.5;
+      }
+      .diagram .node.active .node-title {
+        fill: var(--blue);
+      }
+      .diagram .node.failed rect {
+        fill: var(--red-bg);
+        stroke: var(--red);
+        stroke-dasharray: 6 4;
+      }
+      .diagram .node.failed .node-title {
+        fill: var(--red);
+      }
+      .diagram .interactive {
+        cursor: pointer;
+      }
+      .diagram .interactive:hover rect,
+      .diagram .interactive:focus-visible rect {
+        stroke: var(--blue);
+        stroke-width: 2.5;
+      }
+      .diagram .edge {
+        fill: none;
+        stroke: #a9b6c8;
+        stroke-width: 1.8;
+      }
+      .diagram .control-edge {
+        stroke-dasharray: 5 5;
+      }
+      .diagram .edge.active {
+        stroke: var(--blue);
+        stroke-width: 2.8;
+      }
+      .diagram .edge-label {
+        fill: var(--muted);
+        font-size: 13px;
+      }
+      .legend {
+        padding: 10px 18px 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 24px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .legend span {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .line-sample {
+        width: 24px;
+        border-top: 2px solid #7a8ca5;
+      }
+      .line-sample.dashed {
+        border-top-style: dashed;
+      }
+      .detail {
+        padding: 21px;
+      }
+      .detail p {
+        font-size: 14px;
+      }
+      .detail h2 {
+        font-size: 19px;
+      }
+      .steps {
+        display: grid;
+        gap: 0;
+        margin: 18px 0 0;
+        padding: 0;
+        list-style: none;
+      }
+      .steps button {
+        width: 100%;
+        border: 0;
+        border-radius: 0;
+        border-top: 1px solid var(--line);
+        text-align: left;
+        padding: 10px 0;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .steps button[aria-current="step"] {
+        color: var(--blue);
+        font-weight: 600;
+        background: transparent;
+      }
+      .step-no {
+        display: inline-block;
+        width: 25px;
+        font-family: var(--mono);
+      }
+      .state {
+        margin: 16px 0;
+        font-size: 13px;
+      }
+      .state div {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 7px 0;
+        border-top: 1px solid var(--line);
+      }
+      .state dt {
+        color: var(--muted);
+      }
+      .state dd {
+        margin: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .note {
+        color: var(--muted);
+        font-size: 13px;
+        margin-top: 16px;
+        max-width: 90ch;
+      }
+      .source {
+        font-size: 13px;
+      }
+      .reading-links {
+        display: flex;
+        gap: 22px;
+        flex-wrap: wrap;
+        margin-top: 23px;
+        font-size: 14px;
+      }
+      .content-pad {
+        padding: 24px;
+      }
+      .offset-strip {
+        display: grid;
+        grid-template-columns: repeat(8, minmax(0, 1fr));
+        gap: 10px;
+        margin: 25px 0;
+      }
+      .record {
+        padding: 16px 8px;
+        border: 1px solid var(--line);
+        text-align: center;
+        border-radius: 7px;
+        min-width: 0;
+      }
+      .record .number {
+        display: block;
+        font-size: 21px;
+        font-weight: 600;
+      }
+      .record .record-label {
+        display: block;
+        font-size: 12px;
+        margin-top: 7px;
+      }
+      .record.done {
+        color: var(--green);
+        border-color: #8bbba6;
+        background: var(--green-bg);
+      }
+      .record.committed {
+        color: var(--blue);
+        border-color: #9fb4df;
+        background: var(--pale);
+      }
+      .record.replay {
+        color: var(--amber);
+        border-color: #caa265;
+        background: var(--amber-bg);
+      }
+      .position-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px 32px;
+        margin: 14px 0;
+      }
+      .position-row strong {
+        font-family: var(--mono);
+      }
+      .activity {
+        font-size: 14px;
+        padding-left: 20px;
+        color: var(--muted);
+        min-height: 110px;
+      }
+      .explanation {
+        max-width: 72ch;
+      }
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 22px;
+        padding: 22px 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      .controls label {
+        display: block;
+        font-size: 14px;
+      }
+      .controls output {
+        color: var(--blue);
+        font-weight: 600;
+      }
+      .control-label {
+        display: flex;
+        gap: 8px;
+        justify-content: space-between;
+        margin-bottom: 8px;
+      }
+      .check-row {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin: 0 0 20px;
+      }
+      .assignment-title {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin: 20px 0 10px;
+      }
+      .assignment-title h3 {
+        margin: 0;
+      }
+      .assignment-row {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        border-top: 1px solid var(--line);
+        padding: 11px 0;
+      }
+      .assignment-name {
+        flex: 0 0 93px;
+        font-size: 13px;
+      }
+      .partition-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        flex: 1;
+      }
+      .partition-tag {
+        font: 12px/1.4 var(--mono);
+        padding: 5px 8px;
+        border-radius: 4px;
+        background: var(--pale);
+        color: var(--blue);
+      }
+      .partition-tag.hot {
+        color: var(--amber);
+        background: var(--amber-bg);
+      }
+      .load {
+        flex: 0 0 105px;
+        font-size: 12px;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .load.over {
+        color: var(--red);
+      }
+      .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px 24px;
+      }
+      .form-grid label {
+        font-size: 14px;
+      }
+      .form-grid input {
+        display: block;
+        width: 100%;
+        margin-top: 6px;
+        font-variant-numeric: tabular-nums;
+      }
+      .capacity-layout {
+        grid-template-columns: 340px minmax(0, 1fr);
+      }
+      .capacity-table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 14px;
+      }
+      .capacity-table th,
+      .capacity-table td {
+        padding: 14px 10px;
+        text-align: left;
+        border-bottom: 1px solid var(--line);
+      }
+      .capacity-table th:last-child,
+      .capacity-table td:last-child {
+        text-align: right;
+      }
+      .capacity-table td:last-child {
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .capacity-table thead {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .capacity-table .emphasis {
+        background: var(--pale);
+        color: var(--blue);
+        font-weight: 600;
+      }
+      .formula {
+        font: 13px/1.8 var(--mono);
+        overflow-wrap: anywhere;
+        background: var(--bg);
+        padding: 14px 16px;
+        margin: 18px 0;
+      }
+      .error {
+        color: var(--red);
+        padding: 14px 0;
+      }
+      .case-select {
+        min-width: 220px;
+      }
+      .evolution-copy {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 25px;
+        border-top: 1px solid var(--line);
+        padding: 20px 24px;
+      }
+      .evolution-copy h3 {
+        margin: 0 0 8px;
+      }
+      .evolution-copy p {
+        font-size: 14px;
+        margin: 0;
+      }
+      footer {
+        margin-top: 28px;
+        font-size: 12px;
+        color: var(--muted);
+        border-top: 1px solid var(--line);
+        padding-top: 18px;
+      }
+      @media (max-width: 1100px) {
+        .workspace {
+          grid-template-columns: 1fr;
+        }
+        .detail {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 0 26px;
+        }
+        .detail .steps {
+          grid-column: 2;
+          grid-row: 1 / span 8;
+          margin-top: 0;
+        }
+        .capacity-layout {
+          grid-template-columns: 320px minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 760px) {
+        .header-inner {
+          padding: 18px 18px 0;
+        }
+        .heading-row {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+        h1 {
+          font-size: 24px;
+        }
+        .tabs {
+          gap: 22px;
+          margin-top: 16px;
+          font-size: 14px;
+        }
+        main {
+          padding: 20px 16px 32px;
+        }
+        .workspace,
+        .capacity-layout {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .detail {
+          display: block;
+          padding: 20px;
+        }
+        .detail .steps {
+          margin-top: 16px;
+        }
+        .steps {
+          grid-template-columns: 1fr 1fr;
+          gap: 0 14px;
+        }
+        .toolbar {
+          padding: 12px 15px;
+        }
+        .content-pad {
+          padding: 20px 16px;
+        }
+        .controls {
+          grid-template-columns: 1fr;
+          padding: 20px 16px;
+          gap: 16px;
+        }
+        .offset-strip {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .record {
+          padding: 13px 4px;
+        }
+        .evolution-copy {
+          grid-template-columns: 1fr;
+          gap: 20px;
+          padding: 20px 18px;
+        }
+        .capacity-table th,
+        .capacity-table td {
+          padding: 12px 7px;
+        }
+        .capacity-table .formula-cell {
+          display: none;
+        }
+        .assignment-row {
+          flex-wrap: wrap;
+          gap: 7px 12px;
+        }
+        .assignment-name {
+          flex-basis: 70px;
+        }
+        .load {
+          flex-basis: 100%;
+          text-align: left;
+          padding-left: 82px;
+        }
+        .intro {
+          font-size: 14px;
+        }
+        .diagram-wrap {
+          padding: 10px 0 0;
+        }
+      }
+      @media (prefers-reduced-motion: no-preference) {
+        .diagram .node rect {
+          transition:
+            fill 180ms ease-out,
+            stroke 180ms ease-out;
+        }
+      }
+      @media print {
+        body {
+          background: #fff;
+        }
+        header,
+        .tabs,
+        .toolbar,
+        .actions,
+        .controls,
+        footer {
+          display: none;
+        }
+        main {
+          padding: 0;
+        }
+        .workspace {
+          display: block;
+        }
+        .paper {
+          break-inside: avoid;
+          margin-bottom: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="header-inner">
+        <div class="heading-row">
+          <div>
+            <h1>Kafka 架构实验室</h1>
+            <p class="subtitle">
+              从一条消息的写入，理解一个集群的扩展。Kafka 4.3 · 教学模型
+            </p>
+          </div>
+          <nav class="back-links" aria-label="笔记导航">
+            <a href="../../notes/6038bde2f53957db3997/">返回消息队列专题</a
+            ><a href="../../">笔记首页</a>
+          </nav>
+        </div>
+        <nav class="tabs" role="tablist" aria-label="实验主题">
+          <button
+            id="tab-write"
+            role="tab"
+            aria-controls="write"
+            aria-selected="true"
+            data-tab="write"
+          >
+            写入与复制
+          </button>
+          <button
+            id="tab-offsets"
+            role="tab"
+            aria-controls="offsets"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="offsets"
+          >
+            位点与重放
+          </button>
+          <button
+            id="tab-scaling"
+            role="tab"
+            aria-controls="scaling"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="scaling"
+          >
+            分区与扩容
+          </button>
+          <button
+            id="tab-capacity"
+            role="tab"
+            aria-controls="capacity"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="capacity"
+          >
+            容量估算
+          </button>
+          <button
+            id="tab-evolution"
+            role="tab"
+            aria-controls="evolution"
+            aria-selected="false"
+            tabindex="-1"
+            data-tab="evolution"
+          >
+            架构演进
+          </button>
+        </nav>
+      </div>
+    </header>
+    <main>
+      <noscript
+        ><p>
+          此实验室需要 JavaScript。可以直接阅读<a
+            href="../../notes/6038bde2f53957db3997/"
+            >完整 Markdown 教程</a
+          >，其中保留架构图与全部解释。
+        </p></noscript
+      >
+      <section id="write" role="tabpanel" aria-labelledby="tab-write">
+        <p class="intro">
+          沿着一条订单事件，观察本地追加、Follower
+          复制、确认和消费提交。点击图中节点查看职责；切换故障场景，比较数据面与控制面各自做什么。
+        </p>
+        <div class="workspace">
+          <div class="paper">
+            <div class="toolbar">
+              <label for="scenario"
+                >场景<select id="scenario">
+                  <option value="produce">写入一条订单事件</option>
+                  <option value="failure">Leader 故障与恢复</option>
+                </select></label
+              >
+              <div class="actions">
+                <button id="previous" aria-label="上一步">上一步</button
+                ><button id="next" class="primary">下一步</button
+                ><button id="restart">重新开始</button>
+              </div>
+            </div>
+            <div class="diagram-wrap">
+              <svg
+                id="write-diagram"
+                class="diagram"
+                role="group"
+                aria-label="Kafka 写入复制示意图"
+              ></svg>
+            </div>
+            <div class="legend">
+              <span><i class="line-sample"></i>消息数据或请求结果</span
+              ><span><i class="line-sample dashed"></i>元数据与控制关系</span
+              ><span>蓝框：当前环节；虚线红框：故障节点</span>
+            </div>
+          </div>
+          <aside class="paper detail">
+            <h2 id="step-title"></h2>
+            <p id="step-copy" aria-live="polite"></p>
+            <dl id="write-state" class="state"></dl>
+            <a
+              id="step-source"
+              class="source"
+              href="https://kafka.apache.org/43/design/design/"
+              >查阅官方依据</a
+            >
+            <p id="node-copy" class="note">选择节点可以查看它的职责。</p>
+            <ol id="steps" class="steps" aria-label="场景步骤"></ol>
+          </aside>
+        </div>
+        <p class="note">
+          示例 RF=3、minISR=2、acks=all。位点是“下一位置”。Follower 主动
+          Fetch，图中实线画返回数据的方向。故障场景从已有 ISR 选主，未模拟 ELR
+          的全部恢复分支；没有模拟磁盘刷盘、真实延迟或性能。
+        </p>
+        <div class="reading-links">
+          <a href="../../notes/1c81fc05b701779f2988/">阅读架构详解</a
+          ><a href="../../notes/5ae64fed712020487846/">按源码追踪写入</a>
+        </div>
+      </section>
+
+      <section
+        id="offsets"
+        role="tabpanel"
+        aria-labelledby="tab-offsets"
+        hidden
+      >
+        <div class="intro">
+          <h2>处理完了，不代表进度已经提交</h2>
+          <p>
+            先处理两条而不提交，再模拟崩溃。恢复从已提交位点开始，观察同一条业务事件被再次交付。
+          </p>
+        </div>
+        <div class="workspace">
+          <div class="paper content-pad">
+            <div class="position-row">
+              <span>客户端下一位置 <strong id="position">100</strong></span
+              ><span>已提交下一位点 <strong id="committed">100</strong></span
+              ><span>日志末尾 <strong>108</strong></span>
+            </div>
+            <div
+              id="records"
+              class="offset-strip"
+              aria-label="分区内的8条示例记录"
+            ></div>
+            <div class="actions">
+              <button id="process" class="primary">处理下一条</button
+              ><button id="commit">提交已完成进度</button
+              ><button id="crash">模拟崩溃恢复</button
+              ><button id="offset-reset">重置实验</button>
+            </div>
+            <p id="offset-status" class="note" role="status">
+              从 offset 100 开始，8 条记录等待处理。
+            </p>
+            <h3>操作记录</h3>
+            <ol id="activity" class="activity"></ol>
+          </div>
+          <aside class="paper content-pad explanation">
+            <h3 style="margin-top: 0">这个模型表达什么</h3>
+            <p>
+              蓝色表示进度已提交，绿色表示已处理但未提交，棕色表示崩溃后的待重放记录。每条记录显示的次数，记录它被处理了几次。
+            </p>
+            <p>
+              完成 100 后提交 101，含义是下次从 101
+              开始。若完成业务后、提交前崩溃，100 可能被再次处理。
+            </p>
+            <h3>现实里还多一层</h3>
+            <p>
+              这里每次只交付并处理一条；真实
+              <code>poll()</code> 可以一次交付很多条，使 position
+              提前移动。多线程处理必须追踪每个分区的连续完成范围。
+            </p>
+            <p>
+              演示中的次数没有模拟数据库幂等。业务唯一键、事务和外部接口幂等仍需单独实现。
+            </p>
+            <a
+              class="source"
+              href="../../notes/1c81fc05b701779f2988/#消费组与位点"
+              >阅读位点与幂等边界</a
+            >
+          </aside>
+        </div>
+      </section>
+
+      <section
+        id="scaling"
+        role="tabpanel"
+        aria-labelledby="tab-scaling"
+        hidden
+      >
+        <div class="intro">
+          <h2>三种“加机器”，改变的是三个不同位置</h2>
+          <p>
+            调节分区、消费者和 Broker。比较 Leader
+            放置、组内分工与热键造成的积压，理解为什么新增节点未必解决原来的瓶颈。
+          </p>
+        </div>
+        <div class="workspace">
+          <div class="paper">
+            <div class="controls">
+              <label
+                ><span class="control-label"
+                  >分区数量
+                  <output id="partition-value" for="partitions">6</output></span
+                ><input
+                  id="partitions"
+                  aria-label="分区数量"
+                  type="range"
+                  min="3"
+                  max="18"
+                  step="3"
+                  value="6"
+              /></label>
+              <label
+                ><span class="control-label"
+                  >消费者数量
+                  <output id="consumer-value" for="consumers">3</output></span
+                ><input
+                  id="consumers"
+                  aria-label="消费者数量"
+                  type="range"
+                  min="1"
+                  max="24"
+                  value="3"
+              /></label>
+              <label
+                ><span class="control-label"
+                  >Broker 数量
+                  <output id="broker-value" for="brokers">3</output></span
+                ><input
+                  id="brokers"
+                  aria-label="Broker数量"
+                  type="range"
+                  min="3"
+                  max="6"
+                  value="3"
+              /></label>
+            </div>
+            <div class="content-pad">
+              <label class="check-row"
+                ><input id="hot-key" type="checkbox" />一个热 key 占入口流量的
+                70%，固定写入 P0</label
+              >
+              <div class="assignment-title">
+                <h3>Leader 放置</h3>
+                <span class="muted">只画每个分区的 Leader</span>
+              </div>
+              <div id="broker-assignment"></div>
+              <div class="assignment-title"><h3>同一消费组的分工</h3></div>
+              <div id="consumer-assignment"></div>
+              <p id="scaling-result" class="note" role="status"></p>
+            </div>
+          </div>
+          <aside class="paper content-pad explanation">
+            <h3 style="margin-top: 0">模型假设</h3>
+            <p>
+              入口固定 20,000 条/秒，每个业务消费者最多处理 4,000
+              条/秒。使用简化的均匀分配，不代表某个官方 Assignor 的精确算法。
+            </p>
+            <p>
+              热 key 模式将 70% 流量放在
+              P0，其余均分到其他分区；普通模式均分全部流量。消费者行尾显示被分配的入口速率。
+            </p>
+            <h3>观察边界</h3>
+            <p>
+              普通组中，一个分区同时只分给一个成员。消费者超过分区数，多余成员没有工作；热分区仍可能超过单成员能力。
+            </p>
+            <p>
+              这里展示“完成均衡之后”的放置结果。原生 Kafka 添加 Broker
+              后，现有副本与 Leader 的迁移仍需另行规划，不会按本图瞬间自动搬完。
+            </p>
+            <a class="source" href="../../notes/1ef6e10ace0a048afd52/"
+              >继续阅读扩容与迁移</a
+            >
+          </aside>
+        </div>
+      </section>
+
+      <section
+        id="capacity"
+        role="tabpanel"
+        aria-labelledby="tab-capacity"
+        hidden
+      >
+        <div class="intro">
+          <h2>把流量、副本和保留期，算成资源预算</h2>
+          <p>
+            平均流量用于保留容量，峰值流量用于吞吐。下面是载荷估算器，所有默认值都是教学假设。
+          </p>
+        </div>
+        <div class="workspace capacity-layout">
+          <form id="capacity-form" class="paper content-pad" novalidate>
+            <div class="form-grid">
+              <label
+                >平均事件数 / 秒<input
+                  id="avg-rate"
+                  type="number"
+                  min="0"
+                  max="1000000000"
+                  step="1"
+                  value="100000"
+                  required
+              /></label>
+              <label
+                >峰值事件数 / 秒<input
+                  id="peak-rate"
+                  type="number"
+                  min="1"
+                  max="1000000000"
+                  step="1"
+                  value="300000"
+                  required
+              /></label>
+              <label
+                >平均事件 bytes<input
+                  id="event-size"
+                  type="number"
+                  min="1"
+                  max="1000000000"
+                  step="1"
+                  value="1024"
+                  required
+              /></label>
+              <label
+                >压缩后 / 原大小 %<input
+                  id="compression"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value="50"
+                  required
+              /></label>
+              <label
+                >保留小时<input
+                  id="retention"
+                  type="number"
+                  min="1"
+                  max="87600"
+                  step="1"
+                  value="72"
+                  required
+              /></label>
+              <label
+                >副本数 RF<input
+                  id="replicas"
+                  type="number"
+                  min="1"
+                  max="9"
+                  step="1"
+                  value="3"
+                  required
+              /></label>
+              <label
+                >全量消费组数<input
+                  id="groups"
+                  type="number"
+                  min="0"
+                  max="1000"
+                  step="1"
+                  value="3"
+                  required
+              /></label>
+              <label
+                >磁盘使用上限 %<input
+                  id="utilization"
+                  type="number"
+                  min="1"
+                  max="100"
+                  step="1"
+                  value="65"
+                  required
+              /></label>
+            </div>
+            <p class="note">
+              MB / TB 用十进制；KiB / TiB
+              用二进制。压缩率是输入假设，不是固定性能指标。
+            </p>
+            <button type="reset">恢复示例参数</button>
+          </form>
+          <div class="paper content-pad">
+            <p id="capacity-error" class="error" role="status" hidden></p>
+            <div id="capacity-results" aria-live="polite">
+              <table class="capacity-table">
+                <thead>
+                  <tr>
+                    <th scope="col">预算项目</th>
+                    <th scope="col" class="formula-cell">计算依据</th>
+                    <th scope="col">估算结果</th>
+                  </tr>
+                </thead>
+                <tbody id="capacity-values"></tbody>
+              </table>
+              <div class="formula">
+                B = R × S × c<br />D = B_avg × 保留秒数 × RF<br />磁盘预算 = D /
+                使用上限<br />出站 ≈ B_peak × (RF − 1 + 全量消费组数)
+              </div>
+              <p class="note">
+                载荷容量另加索引、段边界、内部
+                Topic、事务、增长和恢复余量。出站是所有 Broker
+                的汇总，不等于公网流量或云账单；不包含协议开销、重试与历史回放。还需检查单节点热点与故障后的剩余容量。
+              </p>
+              <a
+                class="source"
+                href="../../notes/1ef6e10ace0a048afd52/#容量估算"
+                >查看完整算例与适用条件</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="evolution"
+        role="tabpanel"
+        aria-labelledby="tab-evolution"
+        hidden
+      >
+        <div class="intro">
+          <h2>“自己的 Kafka”，究竟改了哪一层</h2>
+          <p>
+            切换一手资料中的架构路线，比较数据经过哪里、哪部分状态被移动，以及新的复杂度。图是按公开职责重绘的概念模型。
+          </p>
+        </div>
+        <div class="paper">
+          <div class="toolbar">
+            <label for="architecture"
+              >架构路线<select id="architecture" class="case-select">
+                <option value="native">Apache Kafka · 原生分层存储</option>
+                <option value="linkedin">LinkedIn · 自动运维与发行分支</option>
+                <option value="uber">Uber · 消费代理</option>
+                <option value="bmq">字节 BMQ · 读写协调分层</option>
+                <option value="pinterest">Pinterest · Broker 外冷读</option>
+                <option value="kora">Confluent · Cell 与租户放置</option>
+              </select></label
+            ><a
+              id="evolution-source"
+              class="source"
+              href="https://kafka.apache.org/43/operations/tiered-storage/"
+              >查阅一手资料</a
+            >
+          </div>
+          <div class="diagram-wrap">
+            <svg
+              id="evolution-diagram"
+              class="diagram"
+              role="img"
+              aria-label="选定路线的架构示意图"
+            ></svg>
+          </div>
+          <div class="evolution-copy">
+            <div>
+              <h3>公开披露</h3>
+              <p id="evolution-fact"></p>
+            </div>
+            <div>
+              <h3>可扩展性分析</h3>
+              <p id="evolution-analysis"></p>
+            </div>
+            <div>
+              <h3>适用边界</h3>
+              <p id="evolution-boundary"></p>
+            </div>
+          </div>
+        </div>
+        <div class="reading-links">
+          <a href="../../notes/1a5e92bf884999f05413/"
+            >阅读完整大厂调研与证据索引</a
+          ><a
+            href="../../notes/1a5e92bf884999f05413/#automq与redpanda的不同路线"
+            >比较 AutoMQ 与 Redpanda</a
+          >
+        </div>
+      </section>
+      <footer>
+        核验日期
+        2026-10-18。所有状态、流量、容量与分配均为教学示例；浏览器内操作不连接真实
+        Kafka。图页可独立运行，详细来源与版本边界见配套教程。
+      </footer>
+    </main>
+    <script>
+      "use strict";
+      const $ = (id) => document.getElementById(id);
+      const sourceBase = "https://kafka.apache.org/43/";
+      const scenarios = {
+        produce: [
+          {
+            title: "获取分区元数据",
+            text: "Producer 从可达 Broker 获取 P0 Leader 的地址。bootstrap.servers 是发现入口，业务消息不先通过 Controller。",
+            active: ["producer", "leader"],
+            leo: 100,
+            hw: 100,
+            f1: 100,
+            f2: 100,
+            committed: 100,
+            source: "getting-started/introduction/",
+          },
+          {
+            title: "按分区攒批",
+            text: "订单 key 决定分区，记录进入 RecordAccumulator。send() 返回 Future，Sender 在后台发送；此时还没有 Broker 的成功确认。",
+            active: ["producer"],
+            leo: 100,
+            hw: 100,
+            f1: 100,
+            f2: 100,
+            committed: 100,
+            source: "configuration/producer-configs/",
+          },
+          {
+            title: "Leader 本地追加",
+            text: "offset 100 写入 Leader，下一追加位置 LEO 变为 101。两个 Follower 还在 100，HW 暂未推进，因此不能只凭本地追加返回 acks=all 成功。",
+            active: ["leader"],
+            edges: ["produce"],
+            leo: 101,
+            hw: 100,
+            f1: 100,
+            f2: 100,
+            committed: 100,
+            source: "design/design/#replication",
+          },
+          {
+            title: "Follower 拉取并追加",
+            text: "两个 Follower 主动 Fetch，收到数据后写入自己的日志，LEO 到达 101。图中的实线画返回数据方向，而不是 Fetch 请求方向。",
+            active: ["follower1", "follower2"],
+            edges: ["replica1", "replica2"],
+            leo: 101,
+            hw: 100,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "design/design/#replication",
+          },
+          {
+            title: "后续请求反映复制进度",
+            text: "Leader 从后续 Fetch 得知副本已追加到哪里。在这个同步场景中，记录满足提交条件，HW 推进到 101；这不是对每条记录执行一次物理刷盘的演示。",
+            active: ["leader", "follower1", "follower2"],
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "design/design/#replication",
+          },
+          {
+            title: "生产确认返回",
+            text: "满足当前 ISR 的确认条件后，Produce 响应完成 Future。minISR=2 是最低门槛；ISR=3 时不能把 acks=all 理解为任意两个副本响应即可。",
+            active: ["producer", "leader"],
+            edges: ["produce"],
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "configuration/producer-configs/#acks",
+          },
+          {
+            title: "消费与业务处理",
+            text: "Consumer 主动 Fetch 已提交记录，并完成 offset 100 对应的业务。业务成功与消费位点提交是两个动作，此时崩溃仍可能重复交付。",
+            active: ["consumer", "leader"],
+            edges: ["consume"],
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "design/design/#consumer-position",
+          },
+          {
+            title: "提交下一消费位点",
+            text: "处理完 100 后提交 101，表示恢复时从 101 开始。提交请求由该组的 Coordinator 管理，不写入 KRaft 集群元数据日志。",
+            active: ["consumer", "coordinator"],
+            edges: ["offset"],
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 101,
+            source: "configuration/consumer-configs/",
+          },
+        ],
+        failure: [
+          {
+            title: "正常同步状态",
+            text: "记录 100 已提交，三个副本的下一位置均为 101。此场景从完整 ISR 起步，目的是观察一次安全故障切换。",
+            active: ["leader", "follower1", "follower2"],
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "operations/eligible-leader-replicas/",
+          },
+          {
+            title: "原 Leader 不可用",
+            text: "Broker 1 发生故障。生产者可能遇到请求超时或连接失败，尚不能把这类结果一律解释为消息没有写入。",
+            active: ["leader"],
+            failed: true,
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "design/design/#replication",
+          },
+          {
+            title: "控制面检测与变更",
+            text: "Controller 处理 Broker 失效并选择安全候选。这里 Broker 2 和 Broker 3 原本就在 ISR 中；现代 ELR 的其他恢复分支见正文。",
+            active: ["controller"],
+            failed: true,
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "operations/kraft/",
+          },
+          {
+            title: "Broker 2 接任 Leader",
+            text: "原 Follower 接任 P0 Leader，旧节点失效并不意味着它复活后可以继续以旧身份写入。角色与 epoch 等机制需要约束过期请求。",
+            active: ["controller", "follower1"],
+            failed: true,
+            promoted: true,
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "operations/eligible-leader-replicas/",
+          },
+          {
+            title: "客户端刷新路由",
+            text: "Producer 与 Consumer 刷新分区元数据，连接新的 Leader。控制面管理位置，客户端与数据面恢复直接通信。",
+            active: ["producer", "consumer", "follower1"],
+            failed: true,
+            promoted: true,
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "configuration/producer-configs/",
+          },
+          {
+            title: "服务恢复并修复冗余",
+            text: "剩余两个同步副本仍满足本例 minISR=2。随后还需修复第三份冗余、监控余量与追赶；不能把恢复可写等同于恢复全部容错能力。",
+            active: ["follower1", "follower2"],
+            failed: true,
+            promoted: true,
+            leo: 101,
+            hw: 101,
+            f1: 101,
+            f2: 101,
+            committed: 100,
+            source: "operations/basic-kafka-operations/",
+          },
+        ],
+      };
+      const nodeDetails = {
+        producer:
+          "Producer 负责序列化、选分区、攒批、重试与结果回调。幂等 Producer 不会自动识别所有业务重复事件。",
+        leader:
+          "分区 Leader 接收写入并服务读取。它是某个分区的角色，同一 Broker 可以是其他分区的 Follower。",
+        follower1:
+          "Follower 主动 Fetch 复制日志。副本提供冗余，不会让同一分区获得第二个独立写入 Leader。",
+        follower2:
+          "ISR 包含 Leader 与满足同步条件的副本。ELR 则是现代版本额外追踪的安全选主候选机制。",
+        controller:
+          "KRaft Controller 复制和管理集群元数据。业务 Topic 的数据复制不能直接等同于 KRaft 元数据 Raft。",
+        consumer:
+          "普通 Consumer Group 按分区分工；不同组可以独立重读同一份保留日志。",
+        coordinator:
+          "Group Coordinator 是 Broker 上的逻辑角色，管理组与位点请求，和 KRaft Controller 的职责不同。",
+      };
+      let scenario = "produce",
+        step = 0;
+      const narrow = () => window.matchMedia("(max-width: 760px)").matches;
+      function definitions(prefix) {
+        return `<defs><marker id="${prefix}-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#a9b6c8"/></marker><marker id="${prefix}-arrow-blue" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8Z" fill="#1d4ed8"/></marker></defs>`;
+      }
+      function graphNode(
+        id,
+        x,
+        y,
+        w,
+        h,
+        title,
+        sub,
+        active = false,
+        failed = false,
+        interactive = false,
+      ) {
+        return `<g class="node${active ? " active" : ""}${failed ? " failed" : ""}${interactive ? " interactive" : ""}"${interactive ? ` data-node="${id}" role="button" tabindex="0" aria-label="查看${title}职责"` : ""}><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="9"/><text class="node-title" text-anchor="middle" x="${x + w / 2}" y="${y + h / 2 - 5}">${title}</text><text class="node-sub" text-anchor="middle" x="${x + w / 2}" y="${y + h / 2 + 19}">${sub}</text></g>`;
+      }
+      function graphEdge(
+        path,
+        label,
+        x,
+        y,
+        control = false,
+        active = false,
+        prefix = "write",
+      ) {
+        return `<path d="${path}" marker-end="url(#${prefix}-arrow${active ? "-blue" : ""})" class="edge${control ? " control-edge" : ""}${active ? " active" : ""}"/>${label ? `<text class="edge-label" x="${x}" y="${y}" text-anchor="middle">${label}</text>` : ""}`;
+      }
+      function renderWrite() {
+        const s = scenarios[scenario][step],
+          mobile = narrow();
+        const svg = $("write-diagram");
+        svg.setAttribute("viewBox", mobile ? "0 0 360 750" : "0 0 1000 535");
+        let nodes = mobile
+          ? [
+              ["producer", 65, 15, 230, 75, "Producer", "订单 order-100"],
+              [
+                "controller",
+                65,
+                120,
+                230,
+                75,
+                "KRaft 控制面",
+                "3 个投票者 · 元数据 Raft",
+              ],
+              [
+                "leader",
+                65,
+                245,
+                230,
+                85,
+                "Broker 1 · P0 Leader",
+                `LEO ${s.leo} · HW ${s.hw}`,
+              ],
+              [
+                "follower1",
+                10,
+                385,
+                165,
+                85,
+                s.promoted ? "Broker 2 · 新主" : "Broker 2 · 副本",
+                `LEO ${s.f1}`,
+              ],
+              [
+                "follower2",
+                185,
+                385,
+                165,
+                85,
+                "Broker 3 · 副本",
+                `LEO ${s.f2}`,
+              ],
+              ["consumer", 65, 535, 230, 75, "Consumer", "通知消费组"],
+              [
+                "coordinator",
+                65,
+                655,
+                230,
+                75,
+                "Group Coordinator",
+                `已提交下一位点 ${s.committed}`,
+              ],
+            ]
+          : [
+              ["producer", 20, 235, 165, 95, "Producer", "订单 order-100"],
+              [
+                "controller",
+                290,
+                30,
+                410,
+                75,
+                "KRaft 控制面",
+                "3 个投票者 · 元数据 Raft",
+              ],
+              [
+                "leader",
+                285,
+                220,
+                185,
+                110,
+                "Broker 1",
+                "P0 Leader · 本地日志",
+              ],
+              [
+                "follower1",
+                550,
+                150,
+                170,
+                80,
+                s.promoted ? "Broker 2 · 新主" : "Broker 2",
+                `P0 副本 · LEO ${s.f1}`,
+              ],
+              [
+                "follower2",
+                550,
+                350,
+                170,
+                80,
+                "Broker 3",
+                `P0 副本 · LEO ${s.f2}`,
+              ],
+              ["consumer", 800, 235, 180, 95, "Consumer", "通知消费组"],
+              [
+                "coordinator",
+                780,
+                430,
+                210,
+                75,
+                "Group Coordinator",
+                `下一位点 ${s.committed}`,
+              ],
+            ];
+        const activeEdge = (id) => (s.edges || []).includes(id);
+        let edges = mobile
+          ? graphEdge(
+              "M65 52 H26 V287 H65",
+              "",
+              0,
+              0,
+              false,
+              activeEdge("produce"),
+            ) +
+            graphEdge(
+              "M180 195 V245",
+              "元数据",
+              220,
+              225,
+              true,
+              s.active.includes("controller"),
+            ) +
+            graphEdge(
+              "M125 330 V360 H92 V385",
+              "",
+              0,
+              0,
+              false,
+              activeEdge("replica1"),
+            ) +
+            graphEdge(
+              "M235 330 V360 H267 V385",
+              "",
+              0,
+              0,
+              false,
+              activeEdge("replica2"),
+            ) +
+            graphEdge(
+              "M295 285 H338 V505 H180 V535",
+              "",
+              0,
+              0,
+              false,
+              activeEdge("consume"),
+            ) +
+            graphEdge(
+              "M180 610 V655",
+              "提交位点",
+              230,
+              637,
+              false,
+              activeEdge("offset"),
+            )
+          : graphEdge(
+              "M185 282 H285",
+              "Produce",
+              232,
+              268,
+              false,
+              activeEdge("produce"),
+            ) +
+            graphEdge(
+              "M377 105 V220",
+              "元数据管理",
+              425,
+              158,
+              true,
+              s.active.includes("controller"),
+            ) +
+            graphEdge(
+              "M470 248 L550 193",
+              "复制响应",
+              505,
+              199,
+              false,
+              activeEdge("replica1"),
+            ) +
+            graphEdge(
+              "M470 310 L550 390",
+              "复制响应",
+              505,
+              370,
+              false,
+              activeEdge("replica2"),
+            ) +
+            graphEdge(
+              "M470 280 H800",
+              "Fetch 返回已提交记录",
+              635,
+              270,
+              false,
+              activeEdge("consume"),
+            ) +
+            graphEdge(
+              "M890 330 V430",
+              "提交位点",
+              935,
+              389,
+              false,
+              activeEdge("offset"),
+            );
+        if (s.promoted)
+          edges += mobile
+            ? graphEdge(
+                "M92 470 V500 H180 V535",
+                "新 Leader 服务",
+                100,
+                517,
+                false,
+                true,
+              )
+            : graphEdge(
+                "M720 190 H890 V235",
+                "新 Leader",
+                821,
+                177,
+                false,
+                true,
+              );
+        svg.innerHTML =
+          definitions("write") +
+          edges +
+          nodes
+            .map((n) =>
+              graphNode(
+                ...n,
+                s.active.includes(n[0]),
+                n[0] === "leader" && s.failed,
+                true,
+              ),
+            )
+            .join("");
+        $("step-title").textContent =
+          `${step + 1} / ${scenarios[scenario].length}  ${s.title}`;
+        $("step-copy").textContent = s.text;
+        $("write-state").innerHTML =
+          `<div><dt>${s.promoted ? "新主" : "原主"}下一追加位置</dt><dd>${s.promoted ? s.f1 : s.leo}</dd></div><div><dt>提交边界 HW</dt><dd>${s.hw}</dd></div><div><dt>消费组下一位点</dt><dd>${s.committed}</dd></div><div><dt>本例同步状态</dt><dd>${s.failed ? "原主失效，2 个副本存活" : "ISR 3 个副本"}</dd></div>`;
+        $("step-source").href = sourceBase + s.source;
+        $("previous").disabled = step === 0;
+        $("next").disabled = step === scenarios[scenario].length - 1;
+        $("steps").innerHTML = scenarios[scenario]
+          .map(
+            (v, i) =>
+              `<li><button data-step="${i}"${i === step ? ' aria-current="step"' : ""}><span class="step-no">${i + 1}.</span>${v.title}</button></li>`,
+          )
+          .join("");
+      }
+      function moveStep(value) {
+        step = value;
+        $("node-copy").textContent = "选择节点可以查看它的职责。";
+        renderWrite();
+      }
+      $("scenario").addEventListener("change", (e) => {
+        scenario = e.target.value;
+        moveStep(0);
+      });
+      $("previous").addEventListener("click", () =>
+        moveStep(Math.max(0, step - 1)),
+      );
+      $("next").addEventListener("click", () =>
+        moveStep(Math.min(scenarios[scenario].length - 1, step + 1)),
+      );
+      $("restart").addEventListener("click", () => moveStep(0));
+      $("steps").addEventListener("click", (e) => {
+        const b = e.target.closest("[data-step]");
+        if (b) moveStep(Number(b.dataset.step));
+      });
+      function inspectNode(e) {
+        const n = e.target.closest("[data-node]");
+        if (n) $("node-copy").textContent = nodeDetails[n.dataset.node];
+      }
+      $("write-diagram").addEventListener("click", inspectNode);
+      $("write-diagram").addEventListener("keydown", (e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          inspectNode(e);
+        }
+      });
+
+      let position = 100,
+        committed = 100,
+        visits = Array(8).fill(0),
+        activities = [];
+      function recordActivity(message) {
+        activities.unshift(message);
+        activities = activities.slice(0, 5);
+        $("activity").innerHTML = activities
+          .map((t) => `<li>${t}</li>`)
+          .join("");
+        $("offset-status").textContent = message;
+      }
+      function renderOffsets() {
+        $("position").textContent = position;
+        $("committed").textContent = committed;
+        $("records").innerHTML = visits
+          .map((v, i) => {
+            const o = i + 100;
+            const type =
+              o < committed
+                ? "committed"
+                : o < position
+                  ? "done"
+                  : v > 0
+                    ? "replay"
+                    : "";
+            const label =
+              o < committed
+                ? "已提交"
+                : o < position
+                  ? "未提交"
+                  : v > 0
+                    ? "待重放"
+                    : "待处理";
+            return `<div class="record ${type}"><span class="number">${o}</span><span class="record-label">${label}</span><span class="record-label">处理 ${v} 次</span></div>`;
+          })
+          .join("");
+        $("process").disabled = position >= 108;
+        $("commit").disabled = position === committed;
+      }
+      $("process").addEventListener("click", () => {
+        if (position < 108) {
+          const o = position;
+          visits[o - 100]++;
+          position++;
+          recordActivity(
+            `完成 offset ${o} 的第 ${visits[o - 100]} 次处理，尚未提交这次进度。`,
+          );
+          renderOffsets();
+        }
+      });
+      $("commit").addEventListener("click", () => {
+        committed = position;
+        recordActivity(`提交下一位点 ${committed}。恢复时从这里开始。`);
+        renderOffsets();
+      });
+      $("crash").addEventListener("click", () => {
+        const count = position - committed;
+        position = committed;
+        recordActivity(
+          `模拟恢复到 ${committed}，${count} 条已处理但未提交的记录将重放。`,
+        );
+        renderOffsets();
+      });
+      $("offset-reset").addEventListener("click", () => {
+        position = committed = 100;
+        visits = Array(8).fill(0);
+        activities = [];
+        recordActivity("重置到 offset 100。先处理两条，不提交，然后模拟崩溃。");
+        renderOffsets();
+      });
+
+      function renderScaling() {
+        const p = Number($("partitions").value),
+          c = Number($("consumers").value),
+          b = Number($("brokers").value),
+          hot = $("hot-key").checked;
+        $("partition-value").textContent = p;
+        $("consumer-value").textContent = c;
+        $("broker-value").textContent = b;
+        const brokerParts = Array.from({ length: b }, () => []),
+          consumerParts = Array.from({ length: c }, () => []),
+          load = Array(c).fill(0);
+        for (let i = 0; i < p; i++) {
+          brokerParts[i % b].push(i);
+          consumerParts[i % c].push(i);
+          load[i % c] += hot ? (i === 0 ? 14000 : 6000 / (p - 1)) : 20000 / p;
+        }
+        const tags = (parts) =>
+          parts
+            .map(
+              (i) =>
+                `<span class="partition-tag${hot && i === 0 ? " hot" : ""}">P${i}${hot && i === 0 ? " 热" : ""}</span>`,
+            )
+            .join("");
+        $("broker-assignment").innerHTML = brokerParts
+          .map(
+            (parts, i) =>
+              `<div class="assignment-row"><span class="assignment-name">Broker ${i + 1}</span><div class="partition-tags">${tags(parts) || '<span class="muted">暂无 Leader</span>'}</div></div>`,
+          )
+          .join("");
+        $("consumer-assignment").innerHTML = consumerParts
+          .filter((parts) => parts.length)
+          .map(
+            (parts, i) =>
+              `<div class="assignment-row"><span class="assignment-name">消费者 ${i + 1}</span><div class="partition-tags">${tags(parts)}</div><span class="load${load[i] > 4000 ? " over" : ""}">${Math.round(load[i]).toLocaleString()} 条/秒${load[i] > 4000 ? " 超限" : ""}</span></div>`,
+          )
+          .join("");
+        const idle = Math.max(c - p, 0),
+          processed = load.reduce((sum, v) => sum + Math.min(v, 4000), 0),
+          backlog = Math.round(20000 - processed);
+        $("scaling-result").textContent =
+          `${Math.min(p, c)} 个消费者获分区，${idle} 个空闲。此分配下处理约 ${Math.round(processed).toLocaleString()} 条/秒，积压每秒增加约 ${backlog.toLocaleString()} 条。${hot ? "P0 的热 key 不能被增加普通成员直接拆开。" : "增加消费者直到分区或下游能力成为新瓶颈。"}`;
+      }
+      ["partitions", "consumers", "brokers", "hot-key"].forEach((id) =>
+        $(id).addEventListener("input", renderScaling),
+      );
+
+      function renderCapacity() {
+        const form = $("capacity-form"),
+          avg = Number($("avg-rate").value),
+          peak = Number($("peak-rate").value);
+        const valid = [...form.querySelectorAll("input")].every((input) =>
+          input.checkValidity(),
+        );
+        $("capacity-error").hidden = valid && peak >= avg;
+        $("capacity-results").hidden = !valid || peak < avg;
+        if (!valid || peak < avg) {
+          $("capacity-error").textContent =
+            peak < avg
+              ? "峰值事件数不能小于平均事件数。请调整输入。"
+              : "请填写有效数字，并遵守每个字段的范围与整数要求。";
+          return;
+        }
+        const size = Number($("event-size").value),
+          compression = Number($("compression").value) / 100,
+          hours = Number($("retention").value),
+          rf = Number($("replicas").value),
+          groups = Number($("groups").value),
+          usage = Number($("utilization").value) / 100;
+        const av = avg * size * compression,
+          pv = peak * size * compression,
+          disk = av * hours * 3600 * rf;
+        const mb = (v) =>
+          (v / 1e6).toLocaleString("zh-CN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " MB/s";
+        const tb = (v) =>
+          (v / 1e12).toLocaleString("zh-CN", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }) + " TB";
+        const rows = [
+          ["平均压缩后入口", "R_avg × S × c", mb(av)],
+          ["峰值压缩后入口", "R_peak × S × c", mb(pv)],
+          [
+            "多副本保留载荷",
+            "B_avg × T × RF",
+            `${tb(disk)} / ${(disk / 2 ** 40).toFixed(2)} TiB`,
+          ],
+          ["磁盘预算下界", "保留载荷 / 使用上限", tb(disk / usage), true],
+          ["峰值副本复制出站", "B_peak × (RF − 1)", mb(pv * (rf - 1))],
+          ["峰值消费组出站", "B_peak × G", mb(pv * groups)],
+          [
+            "Broker 汇总峰值出站",
+            "B_peak × (RF − 1 + G)",
+            mb(pv * (rf - 1 + groups)),
+            true,
+          ],
+        ];
+        $("capacity-values").innerHTML = rows
+          .map(
+            ([name, formula, value, emphasis]) =>
+              `<tr${emphasis ? ' class="emphasis"' : ""}><th scope="row">${name}</th><td class="formula-cell"><code>${formula}</code></td><td>${value}</td></tr>`,
+          )
+          .join("");
+      }
+      $("capacity-form").addEventListener("input", renderCapacity);
+      $("capacity-form").addEventListener("reset", () =>
+        setTimeout(renderCapacity, 0),
+      );
+      $("capacity-form").addEventListener("submit", (e) => e.preventDefault());
+
+      const architectures = {
+        native: {
+          source: sourceBase + "operations/tiered-storage/",
+          fact: "原生分层存储把关闭的日志段上传到远端。消费者仍通过 Broker Fetch，冷读由 Broker 访问远端。",
+          analysis:
+            "本地长保留压力降低；Broker 仍在数据服务路径上，缓存与远端读会影响性能。",
+          boundary:
+            "需要匹配远端存储实现。4.3 文档列出不支持 compacted topics 等限制；不等于所有状态全部卸载。",
+          nodes: [
+            ["p", "生产者", "追加事件"],
+            ["b", "Broker", "本地热段与服务"],
+            ["s", "远端存储", "关闭的历史段"],
+            ["c", "消费者", "通过 Broker Fetch"],
+          ],
+          edges: [
+            [0, 1, "写入"],
+            [1, 2, "上传旧段"],
+            [3, 1, "Fetch"],
+            [1, 2, "冷读", true],
+          ],
+        },
+        linkedin: {
+          source: "https://github.com/linkedin/cruise-control/wiki/Overview",
+          fact: "LinkedIn 公开过企业补丁分支；Cruise Control 采集分区与 Broker 指标，建模并生成均衡方案。",
+          analysis:
+            "把扩容和恢复变成多目标约束下的持续操作，减少人工放置与资源倾斜。",
+          boundary:
+            "均衡器是控制系统，不是业务消息代理。自动修复有启用条件；企业私有补丁还有长期维护成本。",
+          nodes: [
+            ["k", "Kafka 集群", "原生数据路径"],
+            ["m", "负载监控", "Broker 与分区采样"],
+            ["o", "目标优化器", "故障域与容量约束"],
+            ["e", "执行器", "限速迁移与反馈"],
+          ],
+          edges: [
+            [0, 1, "指标", true],
+            [1, 2, "建模", true],
+            [2, 3, "方案", true],
+            [3, 0, "管理操作", true],
+          ],
+        },
+        uber: {
+          source: "https://www.uber.com/us/en/blog/introducing-ufowarder/",
+          fact: "uForwarder 通过 Kafka 协议读取，再向业务 gRPC 服务按记录投递，汇总结果并推进安全位点。",
+          analysis:
+            "业务工作者可以独立扩缩容；分区分配、重试、路由与在途状态集中到代理层。",
+          boundary:
+            "2026-02-05 文章的公开设计。不是替换 Kafka Broker；顺序、队头阻塞、死信和恢复仍需设计。",
+          nodes: [
+            ["k", "Kafka 分区", "持久日志"],
+            ["p", "uForwarder", "拉取 分发 追踪"],
+            ["a", "gRPC 工作者A", "按记录处理"],
+            ["b", "gRPC 工作者B", "独立伸缩"],
+            ["o", "完成与重试", "连续提交边界"],
+          ],
+          edges: [
+            [0, 1, "拉取"],
+            [1, 2, "投递"],
+            [1, 3, "投递"],
+            [2, 4, "结果"],
+            [3, 4, "结果"],
+            [4, 0, "安全提交", true],
+          ],
+        },
+        bmq: {
+          source:
+            "https://developer.volcengine.com/articles/7330942715883945994",
+          fact: "BMQ 将接入与读取放在 Proxy，写入放在 Broker，消费协调放在独立 Coordinator，数据落在分布式存储。",
+          analysis:
+            "读写与协调可分别调度，历史状态下沉，扩容不再完全受 Broker 本地分区历史绑定。",
+          boundary:
+            "公开职责的概念重绘。共享存储仍有一致性、缓存、所有权与恢复成本；未验证完整协议兼容矩阵。",
+          nodes: [
+            ["c", "Kafka 客户端", "协议接入"],
+            ["p", "Proxy", "读取 缓存 转发"],
+            ["b", "写入 Broker", "分区顺序"],
+            ["g", "Coordinator", "消费组与位点"],
+            ["s", "分布式存储池", "持久化与冗余"],
+          ],
+          edges: [
+            [0, 1, "接入"],
+            [1, 2, "写入"],
+            [1, 3, "组协调"],
+            [2, 4, "持久化"],
+            [1, 4, "读取"],
+          ],
+        },
+        pinterest: {
+          source: "https://github.com/pinterest/tiered-storage",
+          fact: "独立 Segment Uploader 上传日志段，专用消费者可以从 Broker 读热数据，从远端直接读历史。",
+          analysis:
+            "既卸载历史容量，也让一部分冷读流量绕过 Broker；适合评估回放与批处理带来的读放大。",
+          boundary:
+            "需要专用客户端与上传完整性。2024-09-17 文章中的 KRaft 适配仍在开发，采用前应核对当前版本。",
+          nodes: [
+            ["b", "Kafka Broker", "本地热日志"],
+            ["u", "Uploader 侧车", "监听关闭日志段"],
+            ["s", "对象存储", "历史段与索引"],
+            ["c", "专用消费者", "热冷切换"],
+          ],
+          edges: [
+            [0, 1, "关闭段"],
+            [1, 2, "上传"],
+            [3, 0, "热读"],
+            [3, 2, "历史直读"],
+          ],
+        },
+        kora: {
+          source:
+            "https://www.confluent.io/blog/cloud-native-data-streaming-kafka-engine/",
+          fact: "Kora 公开讨论计算、网络、存储解耦和 cell 架构，以租户放置和动态调度管理资源与故障影响范围。",
+          analysis:
+            "在多租户平台上把弹性与故障域一起规划，避免一个巨大共享池承受所有变更风险。",
+          boundary:
+            "不同集群类型有不同路径。Freight 的对象存储直写与秒级延迟权衡，不代表所有 Kora 集群。",
+          nodes: [
+            ["t", "租户与控制面", "配额与放置"],
+            ["a", "Cell A", "一组租户与资源"],
+            ["b", "Cell B", "独立故障影响范围"],
+            ["sa", "存储与缓存 A", "多层数据局部性"],
+            ["sb", "存储与缓存 B", "按负载管理"],
+          ],
+          edges: [
+            [0, 1, "放置", true],
+            [0, 2, "放置", true],
+            [1, 3, "数据"],
+            [2, 4, "数据"],
+          ],
+        },
+      };
+      function renderEvolution() {
+        const model = architectures[$("architecture").value],
+          mobile = narrow(),
+          count = model.nodes.length;
+        const svg = $("evolution-diagram"),
+          w = mobile ? 360 : 1120;
+        const layouts = mobile
+          ? [
+              [80, 15],
+              [80, 135],
+              [80, 255],
+              [80, 375],
+              [80, 495],
+            ]
+          : count === 4
+            ? [
+                [35, 155],
+                [315, 55],
+                [595, 155],
+                [875, 55],
+              ]
+            : [
+                [25, 180],
+                [245, 180],
+                [470, 50],
+                [470, 310],
+                [870, 180],
+              ];
+        const boxW = mobile ? 200 : 210,
+          boxH = 80,
+          height = mobile ? count * 120 : 445;
+        svg.setAttribute("viewBox", `0 0 ${w} ${height}`);
+        let edges = model.edges
+          .map(([from, to, label, control], index) => {
+            const [x1, y1] = layouts[from],
+              [x2, y2] = layouts[to];
+            if (mobile) {
+              const side = index % 2 === 0 ? 24 : 336;
+              const sx = side === 24 ? x1 : x1 + boxW,
+                ex = side === 24 ? x2 : x2 + boxW;
+              const sy = y1 + boxH / 2,
+                ey = y2 + boxH / 2;
+              return graphEdge(
+                `M${sx} ${sy} H${side} V${ey} H${ex}`,
+                label,
+                side === 24 ? 42 : 318,
+                (sy + ey) / 2 - 5,
+                control,
+                false,
+                "evolution",
+              );
+            }
+            const forward = x2 > x1,
+              sx = forward ? x1 + boxW : x1,
+              ex = forward ? x2 : x2 + boxW,
+              sy = y1 + boxH / 2,
+              ey = y2 + boxH / 2;
+            if (!forward) {
+              const lower = 415 - index * 8;
+              return graphEdge(
+                `M${sx} ${sy} V${lower} H${ex} V${ey}`,
+                label,
+                (sx + ex) / 2,
+                lower - 7,
+                control,
+                false,
+                "evolution",
+              );
+            }
+            return graphEdge(
+              `M${sx} ${sy} L${ex} ${ey}`,
+              label,
+              (sx + ex) / 2,
+              (sy + ey) / 2 - 10,
+              control,
+              false,
+              "evolution",
+            );
+          })
+          .join("");
+        svg.innerHTML =
+          definitions("evolution") +
+          edges +
+          model.nodes
+            .map(([id, title, sub], i) =>
+              graphNode(id, ...layouts[i], boxW, boxH, title, sub),
+            )
+            .join("");
+        svg.setAttribute(
+          "aria-label",
+          $("architecture").selectedOptions[0].textContent + "。" + model.fact,
+        );
+        $("evolution-fact").textContent = model.fact;
+        $("evolution-analysis").textContent = model.analysis;
+        $("evolution-boundary").textContent = model.boundary;
+        $("evolution-source").href = model.source;
+      }
+      $("architecture").addEventListener("change", renderEvolution);
+      const tabNames = ["write", "offsets", "scaling", "capacity", "evolution"];
+      function selectTab(name, focus = false) {
+        if (!tabNames.includes(name)) name = "write";
+        tabNames.forEach((id) => {
+          const selected = id === name;
+          $(id).hidden = !selected;
+          $("tab-" + id).setAttribute("aria-selected", String(selected));
+          $("tab-" + id).tabIndex = selected ? 0 : -1;
+        });
+        if (focus) $("tab-" + name).focus();
+        if (name === "write") renderWrite();
+        if (name === "evolution") renderEvolution();
+      }
+      document.querySelector(".tabs").addEventListener("click", (e) => {
+        const t = e.target.closest("[data-tab]");
+        if (t) {
+          location.hash = t.dataset.tab;
+          selectTab(t.dataset.tab);
+        }
+      });
+      document.querySelector(".tabs").addEventListener("keydown", (e) => {
+        const current = e.target.closest("[data-tab]");
+        if (!current) return;
+        let index = tabNames.indexOf(current.dataset.tab);
+        if (e.key === "ArrowRight") index = (index + 1) % tabNames.length;
+        else if (e.key === "ArrowLeft")
+          index = (index + tabNames.length - 1) % tabNames.length;
+        else if (e.key === "Home") index = 0;
+        else if (e.key === "End") index = tabNames.length - 1;
+        else return;
+        e.preventDefault();
+        location.hash = tabNames[index];
+        selectTab(tabNames[index], true);
+      });
+      window.addEventListener("hashchange", () =>
+        selectTab(location.hash.slice(1)),
+      );
+      let resizeTimer;
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (!$("write").hidden) renderWrite();
+          if (!$("evolution").hidden) renderEvolution();
+        }, 120);
+      });
+      renderOffsets();
+      renderScaling();
+      renderCapacity();
+      selectTab(location.hash.slice(1));
+    </script>
+  </body>
+</html>
