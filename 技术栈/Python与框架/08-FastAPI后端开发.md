@@ -273,6 +273,8 @@ async def client_context(
 
 ## 5. 请求体与 Pydantic v2
 
+关于类型转换、必填与可空、校验器和序列化的完整解释，见 [Pydantic 从入门到实战](./Pydantic从入门到实战.md)。
+
 ### 5.1 声明请求模型
 
 ```python
