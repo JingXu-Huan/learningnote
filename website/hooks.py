@@ -25,6 +25,15 @@ LOGGER = logging.getLogger("mkdocs.pages")
 INTERNAL_NAMES = {"agents.md", "claude.md"}
 NOTE_ROOTS = {"技术栈", "计算机网络", "Linux", "项目与成长"}
 UNPUBLISHED_DIRECTORIES = {"资料归档", "归档", "草稿", "drafts", "tmp", "website"}
+VISUAL_PAGES = ("visualizations/ticket-architecture/index.html",)
+
+
+def copy_visual_pages(docs: Path) -> None:
+    """Publish only deliberately selected, self-contained learning tools."""
+    for route in VISUAL_PAGES:
+        destination = docs / route
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / "website" / route, destination)
 
 
 def is_note(path: str) -> bool:
@@ -373,6 +382,7 @@ def on_config(config):
     assets.mkdir()
     for name in ("mathjax.js", "wiki.js", "wiki.css", "search-worker.js"):
         shutil.copyfile(ROOT / "website" / "assets" / name, assets / name)
+    copy_visual_pages(docs)
     config.nav = navigation(paths, LIBRARY)
     config.markdown_extensions.append(WikiLinks())
     LOGGER.info(
@@ -470,6 +480,9 @@ def on_post_build(config):
     for route in LIBRARY.routes.values():
         if not (site / route.removesuffix(".md") / "index.html").is_file():
             raise ValueError(f"Note was not rendered: {route}")
+    for route in VISUAL_PAGES:
+        if not (site / route).is_file():
+            raise ValueError(f"Learning visualization was not published: {route}")
     if LIBRARY.missing:
         report = ROOT / ".cache" / "pages" / "unresolved-links.txt"
         report.write_text(

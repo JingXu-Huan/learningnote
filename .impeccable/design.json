@@ -1,0 +1,115 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T11:16:10+08:00",
+  "title": "Design System: 景旭的编程笔记",
+  "extensions": {
+    "colorMeta": {
+      "primary": { "role": "primary", "displayName": "笔记强调蓝" },
+      "page-bg": { "role": "neutral", "displayName": "学习页浅灰底" },
+      "paper": { "role": "neutral", "displayName": "白色内容面" },
+      "ink": { "role": "neutral", "displayName": "主文字深蓝灰" },
+      "muted": { "role": "neutral", "displayName": "辅助文字灰蓝" },
+      "line": { "role": "neutral", "displayName": "细分隔线" }
+    },
+    "typographyMeta": {
+      "body": { "displayName": "交互页正文", "purpose": "密集但清晰的图形学习界面。" },
+      "reading": { "displayName": "笔记长文", "purpose": "继承 wiki.css 的长文行距和中文阅读方式。" },
+      "source": { "displayName": "源码定位", "purpose": "文件路径和源码定位信息，允许自然换行。" },
+      "graph-title": { "displayName": "图节点标题", "purpose": "全景和回放的节点主标题，随 SVG 实际缩放。" },
+      "graph-secondary": { "displayName": "图形辅助文字", "purpose": "节点副字、步骤编号和区域标签。" },
+      "functional-small": { "displayName": "功能小字", "purpose": "可见功能标签、图例、步骤和复制动作的标称字号下限。" }
+    },
+    "shadows": [
+      { "name": "mode-selected", "value": "0 2px 7px #17334c0d", "purpose": "仅用于顶栏当前模式的浅层选中提示。" }
+    ],
+    "motion": [
+      { "name": "graph-node-transition", "value": "fill .2s, stroke .2s", "purpose": "节点填色与描边的状态过渡；减少动态效果偏好下禁用。" }
+    ],
+    "breakpoints": [
+      { "name": "visualization-wide", "value": "1600px" },
+      { "name": "visualization-details-below", "value": "1360px" },
+      { "name": "visualization-mobile", "value": "760px" },
+      { "name": "wiki-reading-wide", "value": "1280px" },
+      { "name": "wiki-mobile", "value": "767px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "主要操作按钮",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "播放流程和分配一单，沿用笔记强调蓝。",
+      "html": "<button class=\"ds-primary\">播放流程</button>",
+      "css": ".ds-primary{border:1px solid var(--blue,#1d4ed8);background:var(--blue,#1d4ed8);color:white;border-radius:7px;padding:8px 14px;display:inline-flex;align-items:center;justify-content:center;font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif);font-size:12px;line-height:1.6;min-height:35px;cursor:pointer}.ds-primary:focus-visible{outline:3px solid #7a9df0;outline-offset:3px}.ds-primary:disabled{cursor:not-allowed;opacity:.42}"
+    },
+    {
+      "name": "次要操作按钮",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "重置、上一步和下一步，白底细边线。",
+      "html": "<button class=\"ds-secondary\">下一步</button>",
+      "css": ".ds-secondary{border:1px solid var(--line,#dce3ed);background:white;color:var(--ink,#172b45);border-radius:7px;padding:8px 11px;font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif);font-size:12px;line-height:1.6;min-height:35px;cursor:pointer}.ds-secondary:focus-visible{outline:3px solid #7a9df0;outline-offset:3px}.ds-secondary:disabled{cursor:not-allowed;opacity:.42}"
+    },
+    {
+      "name": "学习模式导航",
+      "kind": "nav",
+      "refersTo": "mode-selected",
+      "description": "三个模式共享浅灰底，白色当前项使用浅阴影。",
+      "html": "<div class=\"ds-modes\" role=\"tablist\" aria-label=\"学习视图\"><button class=\"ds-mode\" role=\"tab\" aria-selected=\"true\">系统全景</button><button class=\"ds-mode\" role=\"tab\" aria-selected=\"false\">业务回放</button><button class=\"ds-mode\" role=\"tab\" aria-selected=\"false\">派单推演</button></div>",
+      "css": ".ds-modes{display:flex;align-items:center;gap:4px;background:var(--bg,#f4f6f9);padding:4px;border-radius:9px}.ds-mode{padding:8px 17px;border:0;border-radius:6px;background:transparent;white-space:nowrap;color:var(--muted,#56667a);font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif);font-size:14px;line-height:1.6;cursor:pointer}.ds-mode[aria-selected=true]{background:white;color:var(--blue,#1d4ed8);box-shadow:0 2px 7px #17334c0d;font-weight:650}.ds-mode:focus-visible{outline:3px solid #7a9df0;outline-offset:3px}"
+    },
+    {
+      "name": "步骤选择标记",
+      "kind": "chip",
+      "description": "回放步骤的当前项使用浅蓝底、蓝字与文字编号。",
+      "html": "<button class=\"ds-step\" aria-current=\"true\">3 · 路由判断</button>",
+      "css": ".ds-step{border:1px solid var(--line,#dce3ed);background:#fff;color:var(--muted,#56667a);font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif);font-size:11px;line-height:1.6;padding:4px 8px;border-radius:5px;font-variant-numeric:tabular-nums;cursor:pointer}.ds-step[aria-current=true]{background:var(--pale,#eef3ff);color:var(--blue,#1d4ed8);border-color:#a9bfee}.ds-step:hover{border-color:var(--blue,#1d4ed8)}.ds-step:focus-visible{outline:3px solid #7a9df0;outline-offset:3px}"
+    },
+    {
+      "name": "推演数字参数",
+      "kind": "input",
+      "description": "原生数字输入，标签与等宽数字便于比较。",
+      "html": "<label class=\"ds-field\">并发容量<input type=\"number\" value=\"3\" min=\"0\" aria-label=\"并发容量\"></label>",
+      "css": ".ds-field{font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif);font-size:11px;color:var(--muted,#56667a)}.ds-field input{display:block;width:100%;padding:7px;margin-top:5px;border:1px solid var(--line,#dce3ed);border-radius:5px;background:white;font:inherit;font-variant-numeric:tabular-nums;color:var(--ink,#172b45)}.ds-field input:focus-visible{outline:3px solid #7a9df0;outline-offset:3px}"
+    },
+    {
+      "name": "图形阅读面板",
+      "kind": "card",
+      "refersTo": "diagram-panel",
+      "description": "连续的工具条和阅读区域，不使用浮起阴影。",
+      "html": "<section class=\"ds-panel\"><div class=\"ds-toolbar\"><span>系统全景 · 点击节点查看源码</span></div></section>",
+      "css": ".ds-panel{background:var(--paper,#fff);border:1px solid var(--line,#dce3ed);border-radius:var(--radius,12px);overflow:hidden;font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif)}.ds-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line,#dce3ed);color:var(--muted,#56667a);font-size:12px;line-height:1.6;min-height:50px;box-sizing:border-box}"
+    },
+    {
+      "name": "当前架构节点",
+      "kind": "custom",
+      "refersTo": "graph-node-active",
+      "description": "SVG 单节点摘录，以填色、描边和文字表达当前步骤。整图按 viewBox 尺寸乘 zoom 设置像素宽高；手机回放采用 viewBox 宽度为 360 的单列与 430px 高容器，缩放、步骤或尺寸变化后跟随当前节点；桌面全景使用自然高度，适配比例由实际容器计算。",
+      "html": "<svg class=\"ds-graph\" viewBox=\"0 0 245 103\" width=\"245\" role=\"img\" aria-label=\"当前节点：退票改签路由\"><g class=\"ds-node ds-active\" tabindex=\"0\" role=\"button\" aria-label=\"退票改签路由\"><rect x=\"15\" y=\"15\" width=\"215\" height=\"73\" rx=\"9\"/><text class=\"ds-node-title\" x=\"30\" y=\"44\">退票 / 改签路由</text><text class=\"ds-node-sub\" x=\"30\" y=\"66\">人工、外部、拒单</text></g></svg>",
+      "css": ".ds-graph{font-family:var(--sans,Geist,\"Microsoft YaHei\",\"PingFang SC\",system-ui,sans-serif)}.ds-node{cursor:pointer;outline:none}.ds-node rect{fill:#fff;stroke:#cdd7e5;stroke-width:1.2;transition:fill .2s,stroke .2s}.ds-node:hover rect,.ds-node:focus rect{stroke:var(--blue,#1d4ed8);fill:#f4f7ff}.ds-node.ds-active rect{fill:var(--blue,#1d4ed8);stroke:var(--blue,#1d4ed8)}.ds-node-title{font-size:16px;font-weight:600;fill:var(--ink,#172b45)}.ds-node-sub{font-size:13px;fill:var(--muted,#56667a)}.ds-node.ds-active text{fill:white}@media(prefers-reduced-motion:reduce){.ds-node rect{transition:none}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "蓝白学习笔记",
+    "overview": "视觉依据是 `website/assets/wiki.css` 已有的蓝色强调、白色阅读面、中文导航与正文层级。当前票务架构学习页在此身份下扩展图形节点、回放和参数控件，保留内容优先的阅读方式。本记录从现有代码提取，未重新设定视觉身份，也未宣称覆盖 MkDocs 主题的全部底层变量。\n\n具体页面的 Read / Operate 模式与内容组织保存在 `.impeccable/surfaces/ticket-architecture.md`；这里仅记录可复用的视觉约束。正文、交互状态与源码定位各有层级，解释不能被装饰挤出主要阅读区域。",
+    "keyCharacteristics": [
+      "蓝色用于链接、当前选择与主要动作。",
+      "白色内容面、浅灰背景和细边线组织阅读区域。",
+      "中文系统字体回退，源码路径使用等宽字体。",
+      "节点与控件状态同时通过文字、形状或边线表达。"
+    ],
+    "rules": [],
+    "dos": [
+      "Do 继承笔记站现有蓝色强调、白色阅读面与中文层级。",
+      "Do 将图节点、文字说明、状态和源码出处保持在同一阅读任务中。",
+      "Do 用文字、线型和选中标记补充颜色含义。",
+      "Do 保留键盘焦点、窄屏横向浏览与减少动态效果偏好。"
+    ],
+    "donts": [
+      "Don't 为这个学习页另造品牌字体、装饰性调色板或展示型视觉身份。",
+      "Don't 将交互页的小号路径字号推广为全站正文字号。",
+      "Don't 用只有颜色变化的状态代替节点文字和图例。",
+      "Don't 把页面三栏布局或 Read / Operate 模式推广成所有笔记页面的强制模板。"
+    ]
+  }
+}

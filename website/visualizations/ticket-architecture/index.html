@@ -1,0 +1,3493 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>票务系统 · 架构与业务流转</title>
+    <style>
+      :root {
+        --bg: #f4f6f9;
+        --paper: #fff;
+        --ink: #172b45;
+        --muted: #56667a;
+        --line: #dce3ed;
+        --blue: #1d4ed8;
+        --pale: #eef3ff;
+        --green: #14664d;
+        --amber: #87510b;
+        --radius: 12px;
+        --sans: Geist, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        --mono: Consolas, "SFMono-Regular", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: var(--sans);
+        font-size: 14px;
+        line-height: 1.6;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button,
+      a,
+      input,
+      select {
+        -webkit-tap-highlight-color: transparent;
+      }
+      button {
+        cursor: pointer;
+      }
+      button:disabled {
+        cursor: not-allowed;
+        opacity: 0.42;
+      }
+      button:focus-visible,
+      a:focus-visible,
+      input:focus-visible,
+      select:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 3px solid #7a9df0;
+        outline-offset: 3px;
+      }
+      ::selection {
+        background: #dce7ff;
+        color: #102c76;
+      }
+      ::-webkit-scrollbar {
+        height: 7px;
+        width: 7px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #c3cddc;
+        border-radius: 8px;
+      }
+      a {
+        color: var(--blue);
+        text-underline-offset: 3px;
+      }
+      button {
+        color: inherit;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      button svg {
+        width: 18px;
+        height: 18px;
+        stroke: currentColor;
+        fill: none;
+        stroke-width: 1.7;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      button svg,
+      a svg {
+        flex-shrink: 0;
+      }
+      .topbar {
+        height: 76px;
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 22px;
+        background: var(--paper);
+        border-bottom: 1px solid var(--line);
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 13px;
+        text-decoration: none;
+        color: var(--ink);
+        flex-shrink: 0;
+      }
+      .brand-icon {
+        width: 34px;
+        height: 34px;
+        color: var(--blue);
+      }
+      .brand strong {
+        font-size: 17px;
+        font-weight: 650;
+        letter-spacing: -0.02em;
+      }
+      .brand small {
+        display: block;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 1px;
+      }
+      .modes {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--bg);
+        padding: 4px;
+        border-radius: 9px;
+      }
+      .mode {
+        padding: 8px 17px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        white-space: nowrap;
+        color: var(--muted);
+      }
+      .mode[aria-selected="true"] {
+        background: white;
+        color: var(--blue);
+        box-shadow: 0 2px 7px #17334c0d;
+        font-weight: 650;
+      }
+      .top-links {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+      .note-link {
+        font-size: 13px;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+      .download {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: none;
+        border: 1px solid var(--line);
+        padding: 7px 11px;
+        border-radius: 7px;
+        font-size: 12px;
+      }
+      .workspace {
+        display: grid;
+        grid-template-columns: 196px minmax(0, 1fr);
+        min-height: calc(100vh - 76px);
+      }
+      .sidebar {
+        padding: 23px 15px;
+        background: #f8f9fc;
+        border-right: 1px solid var(--line);
+      }
+      .sidebar h2 {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--muted);
+        padding: 0 12px;
+        margin-bottom: 12px;
+      }
+      .scenario-nav {
+        display: grid;
+        gap: 5px;
+      }
+      .scenario-btn {
+        position: relative;
+        width: 100%;
+        text-align: left;
+        border: 0;
+        background: transparent;
+        border-radius: 8px;
+        padding: 11px 12px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+      }
+      .scenario-btn .nav-dot {
+        width: 7px;
+        height: 7px;
+        border: 1.5px solid #8d9ab0;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .scenario-btn small {
+        display: block;
+        color: var(--muted);
+        font-size: 11px;
+        line-height: 1.5;
+        margin-top: 3px;
+      }
+      .scenario-btn:hover {
+        background: #edf0f6;
+      }
+      .scenario-btn[aria-current="true"] {
+        background: #e7eeff;
+        color: #173faa;
+      }
+      .scenario-btn[aria-current="true"] .nav-dot {
+        background: var(--blue);
+        border-color: var(--blue);
+      }
+      .scenario-btn[aria-current="true"] strong {
+        font-weight: 650;
+      }
+      .scenario-btn strong {
+        font-size: 13px;
+        font-weight: 500;
+      }
+      .side-note {
+        margin: 24px 12px 0;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        font-size: 11px;
+        line-height: 1.9;
+        color: var(--muted);
+      }
+      .side-note code {
+        font-family: var(--mono);
+        font-size: 11px;
+      }
+      .main {
+        min-width: 0;
+        padding: 24px 26px 18px;
+      }
+      .view-heading {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 24px;
+        margin-bottom: 19px;
+      }
+      .view-heading h1 {
+        font-size: 25px;
+        line-height: 1.35;
+        letter-spacing: -0.025em;
+        font-weight: 650;
+        text-wrap: balance;
+      }
+      .view-heading p {
+        margin-top: 7px;
+        color: var(--muted);
+        font-size: 13px;
+        max-width: 66ch;
+      }
+      .snapshot {
+        font-size: 11px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 5px 8px;
+        white-space: nowrap;
+        background: #fff;
+        color: var(--muted);
+      }
+      .snapshot code {
+        font-family: var(--mono);
+        color: var(--ink);
+      }
+      .work-area {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 302px;
+        gap: 18px;
+        align-items: start;
+      }
+      .diagram-panel {
+        min-width: 0;
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+      .diagram-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        min-height: 50px;
+      }
+      .diagram-caption {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .tools {
+        display: flex;
+        gap: 3px;
+        align-items: center;
+      }
+      .icon-button {
+        display: grid;
+        place-items: center;
+        width: 29px;
+        height: 29px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+      }
+      .zoom-value {
+        font-size: 11px;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+        min-width: 36px;
+        text-align: center;
+      }
+      .stage {
+        overflow: auto;
+        overscroll-behavior: contain;
+        min-height: 420px;
+        height: min(68vh, 710px);
+        position: relative;
+        scrollbar-color: #c3cddc transparent;
+      }
+      .graph {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-height: 0;
+        font-family: var(--sans);
+      }
+      .node {
+        cursor: pointer;
+        outline: none;
+      }
+      .node rect {
+        fill: #fff;
+        stroke: #cdd7e5;
+        stroke-width: 1.2;
+        transition:
+          fill 0.2s,
+          stroke 0.2s;
+      }
+      .node:hover rect,
+      .node:focus rect {
+        stroke: var(--blue);
+        fill: #f4f7ff;
+      }
+      .node.selected rect,
+      .node.active rect {
+        fill: var(--blue);
+        stroke: var(--blue);
+      }
+      .node.visited rect {
+        fill: #eef3ff;
+        stroke: #aac0f2;
+      }
+      .node-title {
+        font-size: 16px;
+        font-weight: 600;
+        fill: var(--ink);
+        pointer-events: none;
+      }
+      .node-sub {
+        font-size: 13px;
+        fill: var(--muted);
+        pointer-events: none;
+      }
+      .node.active text,
+      .node.selected text {
+        fill: white;
+      }
+      .node-number {
+        font-size: 13px;
+        fill: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .connector {
+        fill: none;
+        stroke: #aebdce;
+        stroke-width: 1.35;
+      }
+      .connector.async {
+        stroke-dasharray: 6 4;
+      }
+      .connector.data {
+        stroke-dasharray: 2 4;
+      }
+      .connector.current,
+      .connector.past {
+        stroke: var(--blue);
+        stroke-width: 2;
+      }
+      .connector-label {
+        fill: #56667a;
+        font-size: 11px;
+        paint-order: stroke;
+        stroke: white;
+        stroke-width: 5px;
+      }
+      .cluster {
+        fill: #f8fafc;
+        stroke: #e1e7f0;
+      }
+      .cluster-label {
+        font-size: 13px;
+        fill: #617087;
+      }
+      .inactive-edge {
+        opacity: 0.14;
+      }
+      .inactive-node {
+        opacity: 0.48;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        padding: 11px 16px;
+        border-top: 1px solid #e9edf3;
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .legend span {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+      }
+      .legend i {
+        width: 21px;
+        height: 0;
+        border-top: 1.5px solid #8091a9;
+      }
+      .legend i.dashed {
+        border-top-style: dashed;
+      }
+      .legend i.dotted {
+        border-top-style: dotted;
+      }
+      .legend .stage-hint {
+        margin-left: auto;
+      }
+      .map-options {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .map-options label {
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        white-space: nowrap;
+      }
+      .map-options input {
+        accent-color: var(--blue);
+      }
+      .inspector {
+        min-width: 0;
+        max-height: calc(100vh - 200px);
+        overflow: auto;
+        scrollbar-width: thin;
+      }
+      .inspector-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 10px;
+      }
+      .inspector-top span {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .kind {
+        padding: 3px 7px;
+        background: var(--pale);
+        color: #204dad;
+        border-radius: 5px;
+        font-size: 11px !important;
+      }
+      .inspector h2 {
+        font-size: 19px;
+        line-height: 1.5;
+        font-weight: 650;
+        letter-spacing: -0.015em;
+      }
+      .description {
+        color: #40546d;
+        line-height: 1.85;
+        margin-top: 10px;
+        font-size: 13px;
+      }
+      .detail-section {
+        margin-top: 20px;
+        padding-top: 17px;
+        border-top: 1px solid var(--line);
+      }
+      .detail-section h3 {
+        font-size: 11px;
+        color: var(--muted);
+        font-weight: 600;
+        margin-bottom: 9px;
+      }
+      .state-list {
+        display: grid;
+        gap: 7px;
+        margin: 0;
+      }
+      .state-item {
+        display: grid;
+        grid-template-columns: 82px minmax(0, 1fr);
+        gap: 7px;
+        font-size: 12px;
+      }
+      .state-item dt {
+        color: var(--muted);
+      }
+      .state-item dd {
+        margin: 0;
+        overflow-wrap: anywhere;
+        font-weight: 550;
+      }
+      .state-item code {
+        font-size: 11px;
+        font-family: var(--mono);
+        font-weight: 400;
+      }
+      .branch-note {
+        background: #fff7e8;
+        border: 1px solid #eedbb5;
+        border-radius: 8px;
+        padding: 10px 11px;
+        color: #704812;
+        font-size: 12px;
+        line-height: 1.8;
+        margin-top: 16px;
+      }
+      .source {
+        padding: 9px 0;
+        border-bottom: 1px solid #e4e9f0;
+      }
+      .source:last-child {
+        border: 0;
+      }
+      .source a {
+        font-size: 12px;
+        font-weight: 550;
+        text-decoration: none;
+        display: inline-block;
+        line-height: 1.6;
+      }
+      .source p {
+        font-family: var(--mono);
+        font-size: 11px;
+        line-height: 1.7;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+        margin-top: 5px;
+      }
+      .source button {
+        border: 0;
+        background: none;
+        padding: 5px 0 0;
+        color: var(--blue);
+        font-size: 11px;
+      }
+      .related-note {
+        display: inline-block;
+        font-size: 12px;
+        margin: 15px 0;
+        text-decoration: none;
+      }
+      .view-foot {
+        margin-top: 13px;
+        font-size: 11px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .empty-selection {
+        padding: 15px 0;
+      }
+      .empty-selection h2 {
+        font-size: 19px;
+        margin-bottom: 10px;
+      }
+      .module-list {
+        list-style: none;
+        padding: 0;
+        margin: 18px 0;
+      }
+      .module-list li {
+        padding: 10px 0;
+        border-bottom: 1px solid var(--line);
+        font-size: 12px;
+      }
+      .module-list strong {
+        display: block;
+        font-weight: 550;
+      }
+      .module-list span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .playback {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 15px;
+        border-top: 1px solid var(--line);
+        background: #fafbfe;
+      }
+      .primary-button {
+        border: 1px solid var(--blue);
+        background: var(--blue);
+        color: white;
+        border-radius: 7px;
+        padding: 8px 14px;
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        justify-content: center;
+        font-size: 12px;
+        min-height: 35px;
+      }
+      .secondary-button {
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 7px;
+        padding: 8px 11px;
+        font-size: 12px;
+        min-height: 35px;
+      }
+      .playback .step-count {
+        font-size: 11px;
+        color: var(--muted);
+        margin-left: 3px;
+        font-variant-numeric: tabular-nums;
+      }
+      .playback input[type="range"] {
+        min-width: 70px;
+        flex: 1;
+        accent-color: var(--blue);
+      }
+      .playback select,
+      .branch-select {
+        font-size: 11px;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 5px;
+        padding: 6px 7px;
+        color: var(--ink);
+      }
+      .flow-top {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .scenario-states {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .flow-step-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+        margin-top: 13px;
+      }
+      .step-dot {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--muted);
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 5px;
+        font-variant-numeric: tabular-nums;
+      }
+      .step-dot[aria-current="true"] {
+        background: var(--pale);
+        color: var(--blue);
+        border-color: #a9bfee;
+      }
+      .step-dot:hover {
+        border-color: var(--blue);
+      }
+      .lab {
+        display: none;
+      }
+      .lab-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 302px;
+        gap: 22px;
+        align-items: start;
+      }
+      .lab-main {
+        min-width: 0;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 22px;
+      }
+      .lab-intro {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        border-bottom: 1px solid var(--line);
+        padding-bottom: 18px;
+        margin-bottom: 22px;
+      }
+      .lab-intro h2 {
+        font-size: 17px;
+        font-weight: 600;
+      }
+      .lab-intro select {
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px;
+        background: #fff;
+        font-size: 12px;
+      }
+      .agents {
+        display: grid;
+        gap: 0;
+      }
+      .agent-row {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) 190px;
+        gap: 18px;
+        align-items: center;
+        padding: 22px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .agent-row:last-child {
+        border: 0;
+      }
+      .agent-name strong {
+        display: block;
+        font-size: 15px;
+      }
+      .agent-name label {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .agent-name input {
+        accent-color: var(--blue);
+      }
+      .agent-inputs {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 13px;
+      }
+      .agent-inputs label {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .agent-inputs input {
+        display: block;
+        width: 100%;
+        padding: 7px;
+        margin-top: 5px;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        background: white;
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+      }
+      .agent-result {
+        font-size: 12px;
+      }
+      .agent-result strong {
+        display: block;
+        color: var(--blue);
+        font-weight: 600;
+      }
+      .agent-result span {
+        color: var(--muted);
+        font-size: 11px;
+      }
+      .capacity {
+        display: flex;
+        gap: 4px;
+        margin-top: 8px;
+      }
+      .capacity i {
+        display: block;
+        width: 12px;
+        height: 12px;
+        background: #eef1f6;
+        border: 1px solid #d5deeb;
+        border-radius: 3px;
+      }
+      .capacity i.held {
+        background: #b6c6e7;
+        border-color: #aabddd;
+      }
+      .capacity i.next {
+        background: var(--blue);
+        border-color: var(--blue);
+      }
+      .lab-actions {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-top: 22px;
+      }
+      .lab-actions span {
+        font-size: 11px;
+        color: var(--muted);
+      }
+      .lab-trace {
+        padding: 5px 0;
+      }
+      .lab-trace h2 {
+        font-size: 20px;
+        line-height: 1.5;
+        font-weight: 650;
+      }
+      .lab-trace p {
+        margin-top: 10px;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.85;
+      }
+      .lab-trace ol {
+        padding-left: 20px;
+        font-size: 12px;
+        color: #40546d;
+        line-height: 2.1;
+      }
+      .notice {
+        font-size: 11px;
+        line-height: 1.9;
+        color: var(--muted);
+        margin-top: 18px;
+      }
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+      }
+      .mobile-switch {
+        display: none;
+      }
+      @media (min-width: 1600px) {
+        .main {
+          padding: 28px 34px;
+        }
+        .work-area,
+        .lab-layout {
+          grid-template-columns: minmax(0, 1fr) 326px;
+          gap: 25px;
+        }
+        .stage {
+          height: min(73vh, 850px);
+        }
+        .workspace {
+          grid-template-columns: 210px minmax(0, 1fr);
+        }
+      }
+      @media (max-width: 1360px) {
+        .work-area,
+        .lab-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        .inspector {
+          max-height: none;
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0 25px;
+        }
+        .inspector-top,
+        .inspector > h2,
+        .inspector > .description,
+        .inspector > .branch-note {
+          grid-column: 1;
+        }
+        .inspector .detail-section {
+          margin-top: 15px;
+        }
+        .inspector > .related-note {
+          grid-column: 1/-1;
+        }
+        .stage {
+          height: 540px;
+          min-height: 0;
+        }
+        .inspector .empty-selection {
+          grid-column: 1/-1;
+        }
+        .top-links .note-link {
+          display: none;
+        }
+        .lab-trace {
+          padding: 18px 0;
+        }
+        .agent-row {
+          grid-template-columns: 80px minmax(0, 1fr) 170px;
+        }
+      }
+      @media (max-width: 760px) {
+        .topbar {
+          height: auto;
+          min-height: 70px;
+          flex-wrap: wrap;
+          padding: 15px 16px;
+          gap: 15px;
+        }
+        .brand strong {
+          font-size: 15px;
+        }
+        .brand small {
+          font-size: 11px;
+        }
+        .brand-icon {
+          width: 29px;
+          height: 29px;
+        }
+        .modes {
+          order: 3;
+          width: 100%;
+          justify-content: stretch;
+        }
+        .mode {
+          flex: 1;
+          padding: 8px 7px;
+          font-size: 12px;
+        }
+        .top-links {
+          margin-left: auto;
+        }
+        .download {
+          border: 0;
+          padding: 4px;
+          font-size: 0;
+        }
+        .download svg {
+          width: 20px;
+          height: 20px;
+        }
+        .workspace {
+          display: block;
+        }
+        .sidebar {
+          padding: 10px 12px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+        .sidebar h2,
+        .side-note {
+          display: none;
+        }
+        .scenario-nav {
+          display: flex;
+          gap: 5px;
+          overflow-x: auto;
+          padding: 1px 0;
+        }
+        .scenario-btn {
+          width: auto;
+          flex-shrink: 0;
+          padding: 7px 10px;
+        }
+        .scenario-btn small {
+          display: none;
+        }
+        .scenario-btn strong {
+          font-size: 12px;
+        }
+        .scenario-btn .nav-dot {
+          width: 5px;
+          height: 5px;
+        }
+        .main {
+          padding: 20px 14px;
+        }
+        .view-heading {
+          gap: 10px;
+          margin-bottom: 17px;
+        }
+        .view-heading h1 {
+          font-size: 22px;
+        }
+        .view-heading p {
+          font-size: 12px;
+          line-height: 1.8;
+        }
+        .snapshot {
+          display: none;
+        }
+        .diagram-toolbar {
+          padding: 9px 11px;
+          gap: 8px;
+        }
+        .diagram-caption {
+          font-size: 11px;
+          max-width: 50%;
+        }
+        .map-options label {
+          font-size: 11px;
+        }
+        .tools {
+          gap: 2px;
+        }
+        .icon-button {
+          width: 26px;
+          height: 27px;
+        }
+        .stage {
+          height: 430px;
+          min-height: 0;
+        }
+        .graph {
+          min-height: 0;
+        }
+        .legend {
+          gap: 10px;
+          font-size: 11px;
+          padding: 10px 11px;
+        }
+        .legend .stage-hint {
+          margin-left: 0;
+          width: 100%;
+        }
+        .work-area,
+        .lab-layout {
+          gap: 19px;
+        }
+        .inspector {
+          display: block;
+          padding: 3px 4px;
+        }
+        .inspector h2 {
+          font-size: 20px;
+        }
+        .inspector .description {
+          font-size: 13px;
+        }
+        .detail-section {
+          margin-top: 17px;
+        }
+        .view-foot {
+          font-size: 11px;
+          flex-wrap: wrap;
+        }
+        .branch-select {
+          max-width: 146px;
+          font-size: 11px;
+        }
+        .playback {
+          padding: 10px;
+          gap: 6px;
+        }
+        .playback input[type="range"] {
+          order: 7;
+          flex-basis: 100%;
+        }
+        .playback .secondary-button,
+        .playback .primary-button {
+          font-size: 11px;
+          padding: 7px 9px;
+        }
+        .playback .step-count {
+          margin-left: auto;
+        }
+        .flow-top {
+          gap: 6px;
+        }
+        .lab-main {
+          padding: 16px;
+        }
+        .lab-intro {
+          align-items: flex-start;
+          gap: 12px;
+        }
+        .lab-intro h2 {
+          font-size: 15px;
+        }
+        .lab-intro select {
+          max-width: 160px;
+          font-size: 11px;
+          padding: 6px;
+        }
+        .agent-row {
+          grid-template-columns: 62px minmax(0, 1fr);
+          gap: 12px;
+          padding: 18px 0;
+        }
+        .agent-inputs {
+          gap: 8px;
+        }
+        .agent-result {
+          grid-column: 2;
+        }
+        .agent-inputs label {
+          font-size: 11px;
+        }
+        .agent-inputs input {
+          padding: 6px;
+        }
+        .agent-name strong {
+          font-size: 13px;
+        }
+        .lab-actions {
+          flex-wrap: wrap;
+        }
+        .lab-actions span {
+          width: 100%;
+          margin-top: 5px;
+        }
+      }
+      .stage.is-map {
+        height: auto;
+        min-height: 0;
+      }
+      @media (max-width: 760px) {
+        .stage.is-map {
+          height: 430px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      @media print {
+        .topbar,
+        .sidebar,
+        .diagram-toolbar,
+        .playback,
+        .view-foot,
+        .flow-step-list,
+        .lab-actions {
+          display: none !important;
+        }
+        .workspace,
+        .main,
+        .work-area {
+          display: block;
+          padding: 0;
+        }
+        .diagram-panel {
+          border: 0;
+        }
+        .stage {
+          height: auto;
+          overflow: visible;
+        }
+        .graph {
+          width: 100% !important;
+          min-width: 0;
+        }
+        .inspector {
+          max-height: none;
+          overflow: visible;
+          display: block;
+        }
+        .detail-section {
+          break-inside: avoid;
+        }
+        .source button {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="https://jingxu-huan.github.io/learningnote/"
+        ><svg
+          class="brand-icon"
+          viewBox="0 0 36 36"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          aria-hidden="true"
+        >
+          <rect x="3" y="5" width="11" height="9" rx="2" />
+          <rect x="22" y="5" width="11" height="9" rx="2" />
+          <rect x="12" y="24" width="12" height="9" rx="2" />
+          <path d="M8.5 14v5h19v-5M18 19v5" /></svg
+        ><span
+          ><strong>票务系统 · 架构与流转</strong
+          ><small>景旭的编程笔记</small></span
+        ></a
+      >
+      <div class="modes" role="tablist" aria-label="学习视图">
+        <button class="mode" role="tab" data-mode="map" aria-selected="true">
+          系统全景</button
+        ><button class="mode" role="tab" data-mode="flow" aria-selected="false">
+          业务回放</button
+        ><button class="mode" role="tab" data-mode="lab" aria-selected="false">
+          派单推演
+        </button>
+      </div>
+      <div class="top-links">
+        <a
+          class="note-link"
+          href="https://jingxu-huan.github.io/learningnote/notes/a300e4dd1eaff0a74cd3/"
+          >阅读源码教程 ↗</a
+        ><button class="download" id="download" title="下载离线版">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3v12m-4-4 4 4 4-4M5 16v5h14v-5" /></svg
+          ><span>下载离线版</span>
+        </button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar">
+        <h2>按业务探索</h2>
+        <nav class="scenario-nav" id="scenario-nav" aria-label="业务场景"></nav>
+        <div class="side-note">
+          图上的“下一步”，对应的是源码中的一次调用或状态变化。<br /><br />基于已提交快照<br /><code
+            >e9cfe08b</code
+          ><br />示例数据，不是运行监控。
+        </div>
+      </aside>
+      <main class="main">
+        <div class="view-heading">
+          <div>
+            <h1 id="view-title">从入口到业务，再到存储</h1>
+            <p id="view-subtitle">
+              先看模块如何协作。点击节点，查看职责、数据边界和源码入口。
+            </p>
+          </div>
+          <span class="snapshot">源码快照 <code>e9cfe08b</code></span>
+        </div>
+        <div id="diagram-view">
+          <div class="work-area">
+            <section
+              class="diagram-panel"
+              aria-label="交互式架构图与业务流转图"
+            >
+              <div class="diagram-toolbar">
+                <span class="diagram-caption" id="diagram-caption"
+                  >Java 多模块后端，不等同于微服务拆分</span
+                >
+                <div class="map-options" id="map-options">
+                  <label
+                    ><input type="checkbox" id="show-storage" />存储连线</label
+                  >
+                </div>
+                <div class="flow-top" id="flow-options" hidden>
+                  <label class="visually-hidden" for="branch">业务分支</label
+                  ><select class="branch-select" id="branch"></select>
+                </div>
+                <div class="tools">
+                  <button
+                    class="icon-button"
+                    id="zoom-out"
+                    aria-label="缩小图形"
+                  >
+                    <svg viewBox="0 0 24 24"><path d="M5 12h14" /></svg></button
+                  ><span class="zoom-value" id="zoom-value">100%</span
+                  ><button
+                    class="icon-button"
+                    id="zoom-in"
+                    aria-label="放大图形"
+                  >
+                    <svg viewBox="0 0 24 24">
+                      <path d="M5 12h14M12 5v14" />
+                    </svg></button
+                  ><button class="icon-button" id="fit" aria-label="适配图形">
+                    <svg viewBox="0 0 24 24">
+                      <path d="M9 4H4v5m11-5h5v5M4 15v5h5m6 0h5v-5" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div class="stage" id="stage">
+                <svg
+                  id="graph"
+                  class="graph"
+                  viewBox="0 0 1000 730"
+                  role="group"
+                  aria-label="票务项目模块关系"
+                ></svg>
+              </div>
+              <div class="legend">
+                <span><i></i>同步调用</span
+                ><span><i class="dashed"></i>异步 / 事件</span
+                ><span><i class="dotted"></i>存储读写</span
+                ><span class="stage-hint" id="stage-hint"
+                  >点选节点查看详情 · 可缩放与横向浏览</span
+                >
+              </div>
+              <div class="playback" id="playback" hidden>
+                <button class="secondary-button" id="reset">重置</button
+                ><button
+                  class="secondary-button"
+                  id="previous"
+                  aria-label="上一步"
+                >
+                  上一步</button
+                ><button class="primary-button" id="play">
+                  <svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z" /></svg
+                  ><span>播放流程</span></button
+                ><button class="secondary-button" id="next" aria-label="下一步">
+                  下一步</button
+                ><span class="step-count" id="step-count">1 / 10</span
+                ><label class="visually-hidden" for="progress">流程进度</label
+                ><input
+                  id="progress"
+                  type="range"
+                  min="0"
+                  max="10"
+                  value="0"
+                /><label class="visually-hidden" for="speed">播放速度</label
+                ><select id="speed">
+                  <option value="2400">慢速</option>
+                  <option value="1600" selected>正常</option>
+                  <option value="950">快速</option>
+                </select>
+              </div>
+            </section>
+            <aside
+              class="inspector"
+              id="inspector"
+              aria-label="当前模块或步骤详情"
+            ></aside>
+          </div>
+          <div
+            class="flow-step-list"
+            id="flow-step-list"
+            aria-label="直接跳转步骤"
+            hidden
+          ></div>
+        </div>
+        <section class="lab" id="lab" aria-label="客服派单交互练习">
+          <div class="lab-layout">
+            <div class="lab-main">
+              <div class="lab-intro">
+                <h2>修改参数，看看下一单给谁</h2>
+                <label
+                  ><span class="visually-hidden">派单策略</span
+                  ><select id="strategy">
+                    <option value="weighted">权重优先（基础：最少持单）</option>
+                    <option value="least">最少持单</option>
+                    <option value="sequential">顺序轮询（当前实现）</option>
+                  </select></label
+                >
+              </div>
+              <div class="agents" id="agents"></div>
+              <div class="lab-actions">
+                <button class="primary-button" id="assign">分配一单</button
+                ><button class="secondary-button" id="lab-reset">
+                  恢复示例</button
+                ><span id="assigned-log" aria-live="polite"
+                  >先过滤资格与容量，再按策略选择。</span
+                >
+              </div>
+            </div>
+            <aside class="lab-trace" id="lab-trace"></aside>
+          </div>
+        </section>
+        <footer class="view-foot">
+          <span>模块关系来自源码；部署实例、任务频率与线上指标未作推断。</span
+          ><span id="motion-hint">图形可用 Tab 与 Enter 操作</span>
+        </footer>
+      </main>
+    </div>
+    <div class="visually-hidden" id="announcement" aria-live="polite"></div>
+    <script>
+      "use strict";
+      const NOTE =
+        "https://jingxu-huan.github.io/learningnote/notes/a300e4dd1eaff0a74cd3/";
+      const SOURCE_LINKS = {
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/WebSocketManager.java":
+          "source-s01",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TicketAgentDispatchWeightServiceImpl.java":
+          "source-s02",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/ApiService.java":
+          "source-s03",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/OrderDetailServiceImpl.java":
+          "source-s04",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/AlipayBillCompareServiceImpl.java":
+          "source-s05",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/AlipayPullCursorServiceImpl.java":
+          "source-s06",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TicketIssueRejectRuminationServiceImpl.java":
+          "source-s07",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/AlipayBalanceAlertService.java":
+          "source-s08",
+        "ruoyi-system/src/main/java/com/ruoyi/system/sms/service/impl/SmsSendServiceImpl.java":
+          "source-s09",
+        "ruoyi-admin/src/main/java/com/ruoyi/web/controller/system/TicketAgentInProgressController.java":
+          "source-s10",
+        "ruoyi-system/src/main/java/com/ruoyi/system/dispatch/TicketSwitchDispatchSettingsService.java":
+          "source-s11",
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/ScheduledTasks.java":
+          "source-s12",
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/AlipayBalanceAlertJob.java":
+          "source-s13",
+        "ruoyi-system/src/main/java/com/ruoyi/system/sms/service/SmsChannel.java":
+          "source-s14",
+        "ruoyi-system/src/test/java/com/ruoyi/system/sms/SmsSendServiceTest.java":
+          "source-s15",
+        "ruoyi-admin/src/main/java/com/ruoyi/web/controller/system/XieChengChannelController.java":
+          "source-s16",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TicketIssueRuminationStrategyServiceImpl.java":
+          "source-s17",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/OrderPushServiceImpl.java":
+          "source-s18",
+        "sql/20260728_ticket_issue_rumination_strategy.sql": "source-s19",
+        "ruoyi-system/src/main/resources/mapper/system/TicketIssueRuminationStrategyMapper.xml":
+          "source-s20",
+        "ruoyi-system/src/main/java/com/ruoyi/system/domain/TicketIssueRuminationStrategy.java":
+          "source-s21",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/OrderAssignQueueServiceImpl.java":
+          "source-s22",
+        "ruoyi-system/src/main/java/com/ruoyi/system/dispatch/TicketSwitchDispatchReconciler.java":
+          "source-s23",
+        "sql/20260726_dispatch_diag_log_config.sql": "source-s24",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/BusinessArchiveServiceImpl.java":
+          "source-s25",
+        "ruoyi-system/src/main/resources/mapper/system/BusinessArchiveMapper.xml":
+          "source-s26",
+        "sql/20260724_业务脱敏慢SQL优化.sql": "source-s27",
+        "ruoyi-system/src/main/resources/mapper/system/TicketStatChartMapper.xml":
+          "source-s28",
+        "sql/20260724_剩余慢SQL优化.sql": "source-s29",
+        "ruoyi-system/src/main/resources/mapper/system/RefundChannelReportMapper.xml":
+          "source-s30",
+        "sql/20260724_P3P4慢SQL优化.sql": "source-s31",
+        "ruoyi-system/src/main/java/com/ruoyi/system/ai/receipt/service/TicketReceiptRecognitionServiceImpl.java":
+          "source-s32",
+        "ruoyi-system/src/main/java/com/ruoyi/system/ai/receipt/provider/AiRecognitionProvider.java":
+          "source-s33",
+        "ruoyi-system/src/main/java/com/ruoyi/system/ai/receipt/service/TicketReceiptOrderContextService.java":
+          "source-s34",
+        "ruoyi-system/src/main/java/com/ruoyi/system/ai/receipt/service/TicketReceiptMatchService.java":
+          "source-s35",
+        "ruoyi-system/src/main/java/com/ruoyi/system/ai/receipt/service/TicketReceiptAutoIssueService.java":
+          "source-s36",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/issue/IssueExternalAutoIssueService.java":
+          "source-s37",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/issue/IssueExternalQueryCallbackService.java":
+          "source-s38",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/issue/IssueExternalOrderLifecycleService.java":
+          "source-s39",
+        "ruoyi-system/src/main/java/com/ruoyi/system/wsbus/WsBusMqttClient.java":
+          "source-s40",
+        "ruoyi-system/src/main/java/com/ruoyi/system/wsbus/WsBusPullDispatcher.java":
+          "source-s41",
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/XxlJobDistributedLockSupport.java":
+          "source-s42",
+        "ruoyi-system/src/main/java/com/ruoyi/system/wsbus/WsClientMsgConsumer.java":
+          "source-s43",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TicketRejectStrategyServiceImpl.java":
+          "source-s44",
+        "ruoyi-admin/src/main/java/com/ruoyi/web/controller/externalApi/OrderController.java":
+          "source-s45",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/PushOrderProcessor.java":
+          "source-s46",
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/mq/order/OrderPushConsumer.java":
+          "source-s47",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/OrderLockServiceImpl.java":
+          "source-s48",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/PushRefundTicketProcessor.java":
+          "source-s49",
+        "ruoyi-system/src/main/java/com/ruoyi/system/refund/strategy/RefundRouteConfigService.java":
+          "source-s50",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TkPoolAndTkUserTotalServiceImpl.java":
+          "source-s51",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/RefundExternalCallbackService.java":
+          "source-s52",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/RefundExternalReturnService.java":
+          "source-s53",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/PushRescheduleTicketProcessor.java":
+          "source-s54",
+        "ruoyi-system/src/main/java/com/ruoyi/system/rebook/strategy/RebookRouteConfigService.java":
+          "source-s55",
+        "ruoyi-system/src/main/java/com/ruoyi/system/components/TkChangeConsumer.java":
+          "source-s56",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/impl/TkTcPoolAndTkTcUserTotalServiceImpl.java":
+          "source-s57",
+        "ruoyi-system/src/main/java/com/ruoyi/system/service/api/RebookExternalCallbackService.java":
+          "source-s58",
+      };
+      const J = "ruoyi-system/src/main/java/com/ruoyi/system/";
+      const C = "ruoyi-admin/src/main/java/com/ruoyi/web/controller/";
+      const M = "ruoyi-system/src/main/resources/mapper/system/";
+      const source = (path, line, method) => ({ path, line, method });
+      const s = (title, from, to, kind, desc, states, ref, branch = "") => ({
+        title,
+        from,
+        to,
+        kind,
+        desc,
+        states,
+        ref,
+        branch,
+      });
+      const R = {
+        entry: source(
+          C + "externalApi/OrderController.java",
+          55,
+          "统一票务接口",
+        ),
+        push: source(
+          J + "service/api/PushOrderProcessor.java",
+          74,
+          "processData",
+        ),
+        pushMq: source(
+          J + "service/api/ApiService.java",
+          301,
+          "sendPushOrderMessage",
+        ),
+        consumer: source(
+          J + "components/mq/order/OrderPushConsumer.java",
+          140,
+          "消费、锁单与入池",
+        ),
+        supplierLock: source(
+          J + "service/api/ApiService.java",
+          314,
+          "lockOrderAndInsert",
+        ),
+        queue: source(
+          J + "service/impl/OrderAssignQueueServiceImpl.java",
+          74,
+          "enqueue",
+        ),
+        pop: source(
+          J + "service/impl/OrderAssignQueueServiceImpl.java",
+          103,
+          "弹出待派订单",
+        ),
+        wake: source(
+          J + "components/WebSocketManager.java",
+          1456,
+          "notifyOneRandomIdleOrderClient",
+        ),
+        pong: source(J + "wsbus/WsClientMsgConsumer.java", 79, "pong 触发拉单"),
+        pull: source(
+          J + "service/impl/OrderPushServiceImpl.java",
+          685,
+          "assignOneWaitingOrderToUid",
+        ),
+        lock: source(
+          J + "service/impl/OrderLockServiceImpl.java",
+          178,
+          "锁内分配客服",
+        ),
+        result: source(
+          J + "service/impl/OrderDetailServiceImpl.java",
+          617,
+          "updateOne",
+        ),
+        recycle: source(
+          J + "service/impl/TicketIssueRejectRuminationServiceImpl.java",
+          69,
+          "decideAndRecord",
+        ),
+        filter: source(
+          J + "service/impl/TicketIssueRejectRuminationServiceImpl.java",
+          279,
+          "filterCandidates",
+        ),
+        limit: source(
+          J + "service/impl/TicketIssueRejectRuminationServiceImpl.java",
+          571,
+          "动态回收上限",
+        ),
+        weights: source(
+          J + "components/WebSocketManager.java",
+          1555,
+          "resolveWeightedPriorityUserId",
+        ),
+        weightSave: source(
+          J + "service/impl/TicketAgentDispatchWeightServiceImpl.java",
+          186,
+          "提交后刷新权重",
+        ),
+        receipt: source(
+          J + "ai/receipt/service/TicketReceiptRecognitionServiceImpl.java",
+          87,
+          "createTask",
+        ),
+        recognize: source(
+          J + "ai/receipt/service/TicketReceiptRecognitionServiceImpl.java",
+          246,
+          "processTask",
+        ),
+        match: source(
+          J + "ai/receipt/service/TicketReceiptOrderContextService.java",
+          179,
+          "内部订单 ID 优先",
+        ),
+        matcher: source(
+          J + "ai/receipt/service/TicketReceiptMatchService.java",
+          92,
+          "唯一候选匹配",
+        ),
+        evaluate: source(
+          J + "ai/receipt/service/TicketReceiptAutoIssueService.java",
+          123,
+          "整单自动出票评估",
+        ),
+        confirm: source(
+          J + "ai/receipt/service/TicketReceiptAutoIssueService.java",
+          263,
+          "回填确认与 done 标记",
+        ),
+        late: source(
+          J + "ai/receipt/service/TicketReceiptAutoIssueService.java",
+          777,
+          "同批晚完成任务补标",
+        ),
+        callback: source(
+          J + "service/issue/IssueExternalAutoIssueService.java",
+          94,
+          "外部回调的状态保护",
+        ),
+        claim: source(
+          J + "service/issue/IssueExternalOrderLifecycleService.java",
+          101,
+          "claimFinishing",
+        ),
+        queryPay: source(
+          J + "service/api/ApiService.java",
+          2210,
+          "携程优先与 SDK 降级",
+        ),
+        candidates: source(
+          J + "service/api/ApiService.java",
+          2249,
+          "已用过滤与预占标记",
+        ),
+        reserve: source(
+          J + "service/api/ApiService.java",
+          2331,
+          "reserveAliPayNumber",
+        ),
+        payLock: source(
+          J + "service/impl/OrderDetailServiceImpl.java",
+          663,
+          "流水级锁与最终复查",
+        ),
+        bill: source(
+          J + "service/impl/AlipayBillCompareServiceImpl.java",
+          975,
+          "自动账单拉取",
+        ),
+        cursor: source(
+          J + "service/impl/AlipayPullCursorServiceImpl.java",
+          43,
+          "独立事务更新游标",
+        ),
+        compare: source(
+          J + "service/impl/AlipayBillCompareServiceImpl.java",
+          430,
+          "账单与订单比对",
+        ),
+        refund: source(
+          J + "service/api/PushRefundTicketProcessor.java",
+          111,
+          "退票接入与直接落库",
+        ),
+        refundRoute: source(
+          J + "refund/strategy/RefundRouteConfigService.java",
+          581,
+          "路由评估",
+        ),
+        refundPush: source(
+          J + "service/api/PushRefundTicketProcessor.java",
+          334,
+          "异步推送外部退票",
+        ),
+        refundManual: source(
+          J + "service/impl/TkPoolAndTkUserTotalServiceImpl.java",
+          115,
+          "客服领取退票",
+        ),
+        refundCallback: source(
+          J + "service/api/RefundExternalCallbackService.java",
+          547,
+          "状态映射与上游通知",
+        ),
+        refundReturn: source(
+          J + "service/api/RefundExternalReturnService.java",
+          114,
+          "退回人工处理",
+        ),
+        rebook: source(
+          J + "service/api/PushRescheduleTicketProcessor.java",
+          93,
+          "改签接入",
+        ),
+        rebookRoute: source(
+          J + "rebook/strategy/RebookRouteConfigService.java",
+          142,
+          "改签优先级路由",
+        ),
+        rebookMq: source(
+          J + "components/TkChangeConsumer.java",
+          82,
+          "按分配 ID 消费落库",
+        ),
+        rebookPush: source(
+          J + "components/TkChangeConsumer.java",
+          331,
+          "afterCommit 推送外部",
+        ),
+        rebookRetry: source(
+          J + "service/api/PushRescheduleTicketProcessor.java",
+          437,
+          "失败后评估下一通道",
+        ),
+        rebookManual: source(
+          J + "service/impl/TkTcPoolAndTkTcUserTotalServiceImpl.java",
+          121,
+          "人工领取与乘客处理",
+        ),
+        rebookCallback: source(
+          J + "service/api/RebookExternalCallbackService.java",
+          143,
+          "乘客结果与上游通知",
+        ),
+        jobLock: source(
+          J + "components/XxlJobDistributedLockSupport.java",
+          30,
+          "runWithLock",
+        ),
+        jobs: source(
+          J + "components/ScheduledTasks.java",
+          383,
+          "待处理结果补偿查询",
+        ),
+        archive: source(
+          J + "service/impl/BusinessArchiveServiceImpl.java",
+          63,
+          "archiveColdData",
+        ),
+        mask: source(
+          J + "service/impl/BusinessArchiveServiceImpl.java",
+          43,
+          "maskPrivacy",
+        ),
+        archiveSql: source(
+          M + "BusinessArchiveMapper.xml",
+          87,
+          "固定本批临时 ID",
+        ),
+        alert: source(
+          J + "service/impl/AlipayBalanceAlertService.java",
+          271,
+          "低余额判断与通知",
+        ),
+        mqtt: source(J + "wsbus/WsBusMqttClient.java", 164, "共享订阅主题"),
+        dedup: source(
+          J + "wsbus/WsBusPullDispatcher.java",
+          43,
+          "本机异步与跨节点去重",
+        ),
+      };
+      const scenarioData = {
+        issue: {
+          name: "普通出票",
+          summary: "从推单到结果回填",
+          subtitle:
+            "沿一张普通订单，分清推单消息、待派队列、轻量唤醒与最终回填。",
+          chapter: 8,
+          branches: { normal: "正常出票", waiting: "暂无可接客服" },
+          steps: [
+            s(
+              "接收上游推单",
+              "外部票务通道",
+              "开放 API",
+              "HTTP",
+              "统一入口按 serviceName=pushOrder 路由，完成协议处理。",
+              ["接入动作|pushOrder", "完整订单|尚未创建"],
+              R.entry,
+            ),
+            s(
+              "保存推单记录",
+              "接入处理器",
+              "MySQL",
+              "数据库",
+              "先保存 push_order_info。它是接入记录，还不是完整出票订单。",
+              ["接入记录|已保存", "订单明细|尚未创建"],
+              R.push,
+            ),
+            s(
+              "发布订单消息",
+              "接入服务",
+              "RocketMQ",
+              "异步 MQ",
+              "sendPushOrderMessage 将推单交给订单消费者处理。",
+              ["消息主题|TOPIC_ORDER_PUSH", "处理方式|异步消费"],
+              R.pushMq,
+            ),
+            s(
+              "调用供应商锁单",
+              "MQ 消费者",
+              "外部票务通道",
+              "外部 HTTP",
+              "消费者先处理重复推单并调用供应商锁单。这与后面的内部客服分配锁不同。",
+              ["供应商锁单|确认可接管", "客服指派|尚未发生"],
+              R.supplierLock,
+            ),
+            s(
+              "建立完整订单",
+              "业务服务",
+              "MySQL",
+              "数据库",
+              "事务保存 order_detail、ticket_info、passenger_info，再执行自动拒单策略。",
+              ["订单状态|LOCK = 1", "指派用户|空或 -1", "反馈状态|UNKNOWN"],
+              R.consumer,
+              "LOCK 不能单独证明已经派给客服。",
+            ),
+            s(
+              "加入待派队列",
+              "派单服务",
+              "Redis",
+              "Redis",
+              "允许继续派单时进入待派 ZSet，并协调接单容量。",
+              ["待派 ZSet|包含演示订单", "指派用户|尚未确定"],
+              R.queue,
+            ),
+            s(
+              "唤醒合格客服",
+              "派单策略",
+              "MQTT / WSBus",
+              "异步 MQTT",
+              "根据接单状态、通道、容量和生效策略选人。WSBus 启用时发送轻量唤醒。",
+              ["通知含义|请客户端来拉单", "是否已指派|否"],
+              R.wake,
+              "通知不是分配成功。旧本地 WS 注册端点是否启用未确认。",
+            ),
+            s(
+              "客户端响应并拉单",
+              "客服客户端",
+              "本机线程池",
+              "本地异步",
+              "pong 经 WSBus 消息进入拉单调度器，避免在消息回调线程中执行慢业务。",
+              ["客户端动作|pong", "后台动作|pullOneMessage"],
+              R.pong,
+            ),
+            s(
+              "取候选并再次校验",
+              "拉单服务",
+              "Redis / MySQL",
+              "同步调用",
+              "普通队列路径用 Lua 原子弹出候选，再读取最新业务状态。优先反刍订单也可能先从数据库查找。",
+              ["队列候选|已取出", "业务校验|继续复查"],
+              R.pull,
+              "不能画成所有订单都必经一次 Redis pop。",
+            ),
+            s(
+              "锁内指派客服",
+              "分配服务",
+              "MySQL",
+              "数据库事务",
+              "获取用户锁与订单锁，复查容量和资格，条件更新指派用户并建立处理中日志。",
+              [
+                "订单状态|仍为 LOCK = 1",
+                "指派用户|客服 B（示例）",
+                "处理日志|PROCESSING",
+              ],
+              R.lock,
+            ),
+            s(
+              "客服提交出票结果",
+              "客服界面",
+              "结果服务",
+              "HTTP",
+              "通过统一结果入口保存座位、票号和支付流水。供应商反馈结果单独记录。",
+              [
+                "出票结果|TICKET_SUCCESS = 2",
+                "客服处理|本轮完成",
+                "外部反馈|单独确认",
+              ],
+              R.result,
+            ),
+            s(
+              "通知上游并收尾",
+              "结果服务",
+              "外部票务通道",
+              "外部 HTTP",
+              "调用供应商结果接口；业务出票状态与通知是否成功是不同维度。",
+              ["出票状态|成功", "反馈状态|SUCCESS（正常示例）"],
+              R.result,
+              "反馈失败时不能把业务出票成功和外部受理结果混成一个状态。",
+            ),
+          ],
+        },
+        rumination: {
+          name: "失败重派",
+          summary: "有次数上限的二次分配",
+          subtitle:
+            "一次拒单不直接等于最终失败。看订单如何回收、换人，以及何时停止。",
+          chapter: 10,
+          branches: { normal: "允许换人重派", exhausted: "达到回收上限" },
+          steps: [
+            s(
+              "客服提交无票失败",
+              "客服界面",
+              "结果服务",
+              "HTTP",
+              "结果服务读取本轮处理中日志和失败原因，先判断是否还有回收机会。",
+              ["核心订单|LOCK", "处理人|客服 A（示例）"],
+              R.result,
+            ),
+            s(
+              "判断回收资格",
+              "结果服务",
+              "反刍规则",
+              "同步调用",
+              "检查日夜开关、失败原因、配置次数与当前在线人数。",
+              ["回收配置|3 次（示例）", "在线客服|3 人（示例）"],
+              R.recycle,
+            ),
+            s(
+              "计算动态上限",
+              "反刍规则",
+              "决策记录",
+              "规则计算",
+              "有效回收上限为 min(配置次数, max(在线客服数−1,0))。",
+              ["有效上限|2 次（示例）", "首次处理|不算一次回收"],
+              R.limit,
+            ),
+            s(
+              "记录本轮决定",
+              "业务服务",
+              "MySQL",
+              "数据库",
+              "记录订单、客服、尝试序号、处理时长与回收/回调决定，便于审计和统计。",
+              ["本轮决定|RECYCLE", "外部反馈|暂不发送最终失败"],
+              R.recycle,
+            ),
+            s(
+              "恢复待派条件",
+              "结果服务",
+              "MySQL",
+              "数据库",
+              "可回收分支恢复 LOCK，清除有效指派，反馈保持未知。",
+              ["订单状态|LOCK = 1", "指派用户|空或 -1", "反馈状态|UNKNOWN"],
+              R.result,
+            ),
+            s(
+              "提交后重新入池",
+              "结果服务",
+              "Redis",
+              "提交后调用",
+              "直接调用 enqueue 回到待派池，不重新经过外部推单 RocketMQ 链路。",
+              ["待派队列|重新加入", "新推单消息|不需要"],
+              R.queue,
+            ),
+            s(
+              "筛选下一轮客服",
+              "派单策略",
+              "候选集合",
+              "规则计算",
+              "结合时段、失败原因策略和历史拒单人员，优先交给其他合格客服。",
+              ["历史处理人|客服 A", "下一候选|客服 B / C（示例）"],
+              R.filter,
+              "硬排除开启后不能回派；默认优先换人模式在无人可选时可能允许回派。",
+            ),
+            s(
+              "再次指派或最终结束",
+              "分配 / 结果服务",
+              "客服 / 上游",
+              "同步调用",
+              "仍可回收则重新分配；次数用尽后才进入最终无票反馈。",
+              ["剩余机会|由最新状态计算", "最终回调|仅终止分支执行"],
+              R.result,
+            ),
+          ],
+        },
+        receipt: {
+          name: "小票与回调",
+          summary: "异步识别与结果竞争",
+          subtitle:
+            "识别任务成功、自动出票成功、外部通知成功，是三套不同的状态。",
+          chapter: 12,
+          branches: {
+            normal: "小票先完成",
+            ambiguous: "候选存在歧义",
+            blocked: "识别成功但出票阻塞",
+          },
+          steps: [
+            s(
+              "保存识别任务",
+              "上传界面",
+              "任务服务",
+              "数据库",
+              "保存图片任务和候选范围，再交给识别线程池。",
+              ["识别任务|PENDING", "核心订单|LOCK"],
+              R.receipt,
+            ),
+            s(
+              "调用识别供应商",
+              "工作线程",
+              "识别服务",
+              "外部 HTTP",
+              "任务变为 RUNNING，供应商输出还不是订单业务结果。",
+              ["识别任务|RUNNING", "当前阶段|RECOGNIZING"],
+              R.recognize,
+            ),
+            s(
+              "规范化与限定候选",
+              "识别服务",
+              "匹配服务",
+              "同步调用",
+              "统一字段后装载候选。内部订单 ID 非空时，不再用合作方订单号扩大查询范围。",
+              ["识别结果|已提取", "匹配范围|优先内部订单 ID"],
+              R.match,
+            ),
+            s(
+              "匹配唯一业务归属",
+              "匹配服务",
+              "订单上下文",
+              "规则计算",
+              "核对车次、日期、站点和证件信息。唯一候选才自动绑定，多候选交人工审核。",
+              ["识别状态|成功", "匹配状态|MATCHED（正常示例）"],
+              R.matcher,
+            ),
+            s(
+              "保存识别与匹配结果",
+              "任务服务",
+              "MySQL",
+              "数据库",
+              "识别和匹配均成功才将任务记为 SUCCESS，并触发整单评估。",
+              ["任务状态|SUCCESS", "核心订单|仍为 LOCK"],
+              R.recognize,
+            ),
+            s(
+              "评估整单条件",
+              "自动出票服务",
+              "订单与小票",
+              "同步调用",
+              "获取评估锁，检查乘客小票是否齐全、取票号是否一致和自动出票开关。",
+              ["自动出票|评估中", "订单状态|LOCK"],
+              R.evaluate,
+            ),
+            s(
+              "核对流水并统一回填",
+              "自动出票服务",
+              "结果服务",
+              "同步调用",
+              "满足完整条件且流水匹配后，进入同一订单回填入口。",
+              ["核心订单|TICKET_SUCCESS", "自动出票|CONFIRMED"],
+              R.confirm,
+            ),
+            s(
+              "晚完成任务补标",
+              "任务服务",
+              "已出票快照",
+              "状态修复",
+              "任务创建时间不晚于成功时间，且取票号相同，才用已有出票事实补 CONFIRMED。",
+              ["小票任务|补充确认", "再次出票|不执行"],
+              R.late,
+              "这里的“同批”由时间与取票号判断，没有独立批次 ID。",
+            ),
+            s(
+              "外部回调随后到达",
+              "外部查询",
+              "跟踪单服务",
+              "外部回调",
+              "先领取外部跟踪单 FINISHING 处理权，再判断核心订单是否仍可回填。",
+              ["外部跟踪单|FINISHING", "核心订单|已成功"],
+              R.claim,
+            ),
+            s(
+              "保护已有业务结果",
+              "外部结果服务",
+              "核心订单",
+              "状态门禁",
+              "订单已不满足 LOCK＋反馈未知，返回跳过并保留现有票号、座位和流水。",
+              ["回调动作|跳过核心回填", "既有出票结果|保留"],
+              R.callback,
+              "跟踪单收尾成功，不等于再次执行了一次出票。",
+            ),
+          ],
+        },
+        payment: {
+          name: "支付流水",
+          summary: "候选、预占与最终回填",
+          subtitle: "把人工核对的预占，与提交时的短时互斥和业务复查分开看。",
+          chapter: 8,
+          branches: { normal: "两单竞争同一流水", expired: "预占到期后再竞争" },
+          steps: [
+            s(
+              "查询当前订单候选",
+              "客服界面",
+              "票务通道",
+              "外部 HTTP",
+              "先向携程通道查询候选，按订单、金额、通道与支付宝账号限定范围。",
+              ["候选主来源|携程通道", "本地账单优先|不是这条链路"],
+              R.queryPay,
+            ),
+            s(
+              "必要时 SDK 降级",
+              "候选服务",
+              "支付宝 SDK",
+              "外部 HTTP",
+              "携程无结果且开关允许时查询支付宝，按时间、方向与金额筛选。",
+              ["降级开关|开启（示例）", "候选流水|F（示例）"],
+              R.queryPay,
+            ),
+            s(
+              "标记已用与预占",
+              "候选服务",
+              "MySQL / Redis",
+              "存储读取",
+              "近期订单已回填的流水从候选移除；被其他订单预占的流水仍可见，但带预占标记。",
+              ["历史已用|过滤", "他单预占|显示标记 / 置灰"],
+              R.candidates,
+            ),
+            s(
+              "订单 A 预占流水 F",
+              "预占服务",
+              "Redis",
+              "Redis 短锁",
+              "获取流水维度短锁，再用 setIfAbsent＋TTL 写入订单归属。",
+              ["占用归属|订单 A", "预占 TTL|3 分钟", "是否已回填|否"],
+              R.reserve,
+            ),
+            s(
+              "订单 B 尝试选择",
+              "预占服务",
+              "Redis",
+              "冲突判断",
+              "读到 A 的预占关系，拒绝 B 的选择；同一订单重复选择可以续期。",
+              ["订单 A|预占有效", "订单 B|本次被拒绝"],
+              R.reserve,
+            ),
+            s(
+              "A 提交并再次复查",
+              "结果服务",
+              "MySQL / Redis",
+              "流水级锁",
+              "最终阶段重新获取流水锁，复查近期订单与 Redis 预占归属。",
+              ["候选展示|不承担最终裁决", "回填校验|正在执行"],
+              R.payLock,
+              "数据库复查范围是近 1 小时，不是全生命周期唯一约束。",
+            ),
+            s(
+              "写入结果并清理",
+              "结果服务",
+              "订单数据库",
+              "数据库",
+              "保存流水、票号和出票结果，随后清理预占。",
+              ["订单结果|出票成功", "预占记录|删除"],
+              R.result,
+            ),
+            s(
+              "后续账单独立核对",
+              "XXL-Job",
+              "账单服务",
+              "独立触发",
+              "账单同步是另外一条后台链路，不是本次候选查询必经的后半段。",
+              ["账单同步|另行触发", "业务回填|已完成"],
+              R.bill,
+              "可切换“账单与后台”继续查看复合游标与对账。",
+            ),
+          ],
+        },
+        refund: {
+          name: "退票业务",
+          summary: "直接入池与路由回填",
+          subtitle:
+            "退票入站直接落库。路由去向、退票结果、上游通知结果需要分别记录。",
+          chapter: 14,
+          branches: {
+            normal: "外部成功并通知上游",
+            notifyFailed: "外部成功，上游通知失败",
+            manual: "转人工处理",
+          },
+          steps: [
+            s(
+              "接收退票推送",
+              "上游平台",
+              "退票处理器",
+              "HTTP",
+              "统一入口按 pushRefundTicket 路由，以 refundAssignId 识别业务。",
+              ["业务类型|退票", "幂等标识|refundAssignId"],
+              R.refund,
+            ),
+            s(
+              "直接保存详情与票池",
+              "退票处理器",
+              "MySQL",
+              "数据库",
+              "当前主干直接保存 refund_ticket_info 与 tk_pool，不先经过推单 MQ。",
+              ["退票结果|待处理 = 0", "详情与票池|已保存"],
+              R.refund,
+              "项目存在退票消费者，不等于当前接入路径必经 RocketMQ。",
+            ),
+            s(
+              "筛票与延迟聚合",
+              "退票处理器",
+              "路由规则",
+              "规则 / 延迟",
+              "可以按同取票号延迟聚合，临时标为 PENDING，再评估实际路由。",
+              ["路由阶段|PENDING / 待评估", "是否完成退票|否"],
+              R.refundRoute,
+            ),
+            s(
+              "决定处理通道",
+              "路由服务",
+              "处理入口",
+              "规则计算",
+              "按通道优先级、开关、规则和容量，进入人工、外部或拒单分支。",
+              ["路由去向|EXTERNAL（正常示例）", "退票状态|仍待处理"],
+              R.refundRoute,
+            ),
+            s(
+              "异步向外部推送",
+              "退票服务",
+              "外部通道",
+              "本地异步 HTTP",
+              "外部受理只代表请求已接收。真实请求失败按配置次数重试，达到阈值后转人工。",
+              ["外部请求|受理", "退票结果|尚未成功"],
+              R.refundPush,
+            ),
+            s(
+              "外部发送成功回调",
+              "外部通道",
+              "回调服务",
+              "HTTP 回调",
+              "外部 ticketStatus=3 映射为内部成功候选；先锁定订单，再处理回调。",
+              ["外部状态|3 = 成功", "内部状态|等待通知确认"],
+              R.refundCallback,
+              "外部状态 1/2 处理中、4/5 退回、6 失败，不能直接照搬为内部编码。",
+            ),
+            s(
+              "向上游回填结果",
+              "回调服务",
+              "上游平台",
+              "外部 HTTP",
+              "只有上游通知成功，才写入内部业务终态。",
+              ["通知结果|SUCCESS（正常示例）", "内部退票|成功 = 1"],
+              R.refundCallback,
+            ),
+            s(
+              "独立补偿与归档",
+              "XXL-Job",
+              "业务与历史表",
+              "后台任务",
+              "待处理订单可轮询同步结果；报表与到期脱敏归档由独立任务处理。",
+              ["实时链路|已完成", "报表 / 归档|独立触发"],
+              R.jobs,
+            ),
+          ],
+        },
+        rebook: {
+          name: "改签业务",
+          summary: "多乘客与通道切换",
+          subtitle:
+            "改签围绕原 / 新行程、多乘客和差额处理，不是普通出票的简单重复。",
+          chapter: 14,
+          branches: {
+            normal: "外部改签成功",
+            notifyFailed: "上游通知失败",
+            nextChannel: "请求失败后换通道",
+          },
+          steps: [
+            s(
+              "接收改签与幂等检查",
+              "上游平台",
+              "改签处理器",
+              "HTTP",
+              "按 pushRescheduleTicket 路由，校验 rescheduleAssignId 等关键标识。",
+              ["业务类型|改签", "幂等标识|rescheduleAssignId"],
+              R.rebook,
+            ),
+            s(
+              "按优先级评估路由",
+              "改签处理器",
+              "路由服务",
+              "规则计算",
+              "评估开关、黑白名单、容量和可用通道，必要时同步查余票。",
+              ["处理去向|按规则确定", "无可用通道|默认拒单"],
+              R.rebookRoute,
+            ),
+            s(
+              "构造主单与乘客消息",
+              "改签处理器",
+              "RocketMQ",
+              "异步 MQ",
+              "组织原 / 新行程和乘客列表。拒单直接回调，其余发布 TOPIC_CHANGE。",
+              ["消息内容|主单＋多乘客", "消费方式|异步"],
+              R.rebook,
+            ),
+            s(
+              "消费并保存改签数据",
+              "TkChangeConsumer",
+              "MySQL",
+              "数据库事务",
+              "按分配 ID 加锁去重，保存 change_ticket_info、乘客和每乘客对应票池。",
+              ["改签主单|待处理 = 0", "乘客记录|分别保存"],
+              R.rebookMq,
+            ),
+            s(
+              "提交后派外部通道",
+              "改签消费者",
+              "外部改签 API",
+              "afterCommit",
+              "外部路由在事务提交后再发起异步推送，避免下游读取尚未提交的数据。",
+              ["数据库|已提交", "外部派单|开始"],
+              R.rebookPush,
+            ),
+            s(
+              "收到订单级成功回调",
+              "外部通道",
+              "改签回调服务",
+              "HTTP 回调",
+              "外部回调以订单为单位返回结果；成功分支遍历该单乘客，更新回调中的座位和金额等信息。",
+              ["外部成功码|rescheduleStatus = 3", "乘客记录|按订单回调更新"],
+              R.rebookCallback,
+            ),
+            s(
+              "通知上游改签结果",
+              "改签回调服务",
+              "上游平台",
+              "外部 HTTP",
+              "外部成功分支更新乘客后直接通知上游，成功才确认主单终态。人工逐乘客处理的聚合规则是另一条路径。",
+              ["上游通知|SUCCESS（正常示例）", "内部成功码|change_status = 1"],
+              R.rebookCallback,
+              "人工路径：仍有待处理乘客则等待；否则按失败、退回、全成功汇总。外部成功回调不必经过该聚合方法。",
+            ),
+            s(
+              "确认终态与后续任务",
+              "结果 / 后台服务",
+              "MySQL",
+              "数据库",
+              "上游通知成功后确认终态；待处理主单可由补偿查询同步。",
+              ["主单结果|成功 = 1（正常示例）", "统计与冷归档|独立任务"],
+              R.jobs,
+            ),
+          ],
+        },
+        background: {
+          name: "账单与后台",
+          summary: "对账、补偿、脱敏与归档",
+          subtitle:
+            "后台任务分别触发，不是每次订单回调都同步执行完整报表与归档。",
+          chapter: 13,
+          branches: { normal: "独立任务示例" },
+          steps: [
+            s(
+              "各任务独立调度",
+              "XXL-Job",
+              "任务入口",
+              "调度触发",
+              "部分 handler 使用 Redis 分布式锁；账单任务入口未发现相同锁包装。各任务独立触发，频率取决于调度中心配置。",
+              ["触发频率|未从源码推定", "运行互斥|依 handler 实现"],
+              R.jobLock,
+            ),
+            s(
+              "读取账单同步进度",
+              "账单任务",
+              "游标表",
+              "数据库",
+              "自动开关开启时使用交易时间＋账务流水号复合游标，首次从本月开始。",
+              ["游标|时间＋流水号", "拉取截止|当前时间前 90 秒"],
+              R.bill,
+            ),
+            s(
+              "分页读取并保存账单",
+              "账单服务",
+              "支付宝 / MySQL",
+              "外部 HTTP",
+              "分页过滤旧记录，独立事务推进游标；调用方再去重并批量保存账单。",
+              ["游标事务|REQUIRES_NEW", "账单入库|独立业务步骤"],
+              R.cursor,
+              "游标与账单不是同一个原子提交，不能据此宣称零漏单。",
+            ),
+            s(
+              "比较账单与业务订单",
+              "核对服务",
+              "MySQL",
+              "规则计算",
+              "按交易号关联订单，分别识别正常、金额不符、有账无单、有单无账。",
+              ["比较维度|金额 / 业务关联", "异常数据|待人工处理"],
+              R.compare,
+            ),
+            s(
+              "恢复未完成业务",
+              "补偿任务",
+              "待处理订单",
+              "定时查询",
+              "退票、改签待处理结果可通过上游 queryOrderInfo 查询同步；异步占位还需要可扫描记录。",
+              ["恢复目标|未完成订单", "重复执行|仍需状态校验"],
+              R.jobs,
+            ),
+            s(
+              "检查余额并按需告警",
+              "余额任务",
+              "短信 / 微信",
+              "独立通知",
+              "低于配置阈值时通知订阅人，通道受理记录和重复间隔限制告警频次。",
+              ["告警参数|配置驱动", "ACCEPTED|受理，不是送达"],
+              R.alert,
+            ),
+            s(
+              "到期脱敏与统计检查",
+              "归档任务",
+              "业务 / 报表数据",
+              "后台批处理",
+              "默认 48 小时脱敏证件号、15 天脱敏取票号；冷归档前检查统计覆盖。",
+              ["保留期限|可配置", "统计生成|独立调度"],
+              R.mask,
+            ),
+            s(
+              "固定批 ID 后冷归档",
+              "归档服务",
+              "历史表 / 热表",
+              "数据库",
+              "固定批 ID，再复制历史表、历史脱敏、清理关联热表，循环下一批。",
+              ["冷归档默认|45 天，可配置", "批次集合|临时 ID 表"],
+              R.archive,
+              "TRUNCATE 存在隐式提交边界，不能仅凭事务注解宣称整流程原子回滚。",
+            ),
+          ],
+        },
+      };
+      const nodes = [
+        {
+          id: "platform",
+          x: 25,
+          y: 105,
+          w: 170,
+          label: "外部票务通道",
+          sub: "推单 / 锁单 / 结果反馈",
+          desc: "外部系统通过统一开放接口推送出票、退票和改签请求；供应商锁单、结果反馈与异步回调是不同动作。",
+          states: ["系统角色|上游业务方", "交互方式|HTTP 请求 / 回调"],
+          refs: [R.entry, R.supplierLock],
+        },
+        {
+          id: "staff",
+          x: 25,
+          y: 285,
+          w: 170,
+          label: "客服工作台",
+          sub: "接单 / 处理 / 回填",
+          desc: "客服的在线状态、通道资格和处理容量影响候选筛选。收到轻量通知后拉单，指派成功才进入具体处理。",
+          states: ["前端|Vue 2 / Element UI", "处理状态|不等于出票结果"],
+          refs: [R.pong, R.lock, R.result],
+        },
+        {
+          id: "admin",
+          x: 25,
+          y: 465,
+          w: 170,
+          label: "运营管理",
+          sub: "配置 / 诊断 / 报表",
+          desc: "维护日夜模板、个人并发、权重、反刍策略和通道规则；通过诊断与业务记录解释阻塞原因。",
+          states: ["配置写入|数据库", "运行规则|结合当前业务状态"],
+          refs: [R.weightSave, R.filter],
+        },
+        {
+          id: "open",
+          x: 245,
+          y: 105,
+          w: 215,
+          label: "开放 API 与处理器",
+          sub: "serviceName → 业务处理器",
+          desc: "Controller 接收协议请求，OrderService 按 serviceName 分派，处理器负责具体业务接入。退票直接落库，普通出票与改签的后续路径不同。",
+          states: [
+            "模块|ruoyi-admin / ruoyi-system",
+            "职责|协议入口与业务分派",
+          ],
+          refs: [R.entry, R.push, R.refund, R.rebook],
+        },
+        {
+          id: "business-api",
+          x: 490,
+          y: 105,
+          w: 215,
+          label: "客服 / 管理接口",
+          sub: "参数、权限与业务入口",
+          desc: "客服处理结果、流水选择和管理配置经各自 Controller 进入 Service。前端按钮不能代替后端状态校验。",
+          states: ["接口层|ruoyi-admin", "核心业务|ruoyi-system"],
+          refs: [R.result, R.reserve],
+        },
+        {
+          id: "job",
+          x: 735,
+          y: 105,
+          w: 215,
+          label: "XXL-Job 任务入口",
+          sub: "调度、互斥与补偿",
+          desc: "任务入口触发对账、待处理结果查询、余额告警、报表和归档。执行频率需要查看调度中心，不从注释推断。",
+          states: ["触发机制|独立后台任务", "多节点保护|按 handler 的锁"],
+          refs: [R.jobLock, R.jobs],
+        },
+        {
+          id: "issue",
+          x: 245,
+          y: 285,
+          w: 215,
+          label: "出票与客服派单",
+          sub: "候选、指派、处理超时",
+          desc: "普通出票先经订单消息与供应商锁单建立订单，再入待派队列。派单综合资格、容量、日夜配置、权重与历史拒单规则。",
+          states: [
+            "订单状态|LOCK / 出票成功 / 失败",
+            "指派状态|assigner_user_id",
+            "客服日志|PROCESSING / 已完成",
+          ],
+          refs: [R.queue, R.weights, R.lock],
+        },
+        {
+          id: "routes",
+          x: 490,
+          y: 285,
+          w: 215,
+          label: "退票 / 改签路由",
+          sub: "人工、外部、拒单",
+          desc: "退票与改签独立建模、独立路由。退票直接保存详情和票池；改签包含原新行程、多乘客消息与提交后外部派单。",
+          states: [
+            "退票结果|refund_status",
+            "改签结果|change_status",
+            "路由去向|独立于业务结果",
+          ],
+          refs: [R.refundRoute, R.rebookRoute],
+        },
+        {
+          id: "receipt-pay",
+          x: 735,
+          y: 285,
+          w: 215,
+          label: "小票识别 / 支付核对",
+          sub: "识别结果与业务结果分开",
+          desc: "小票先提取、规范化和匹配，再做整单评估。支付候选查询、流水预占与定时账单同步也有不同入口。",
+          states: [
+            "识别任务|独立任务状态",
+            "核心订单|统一回填入口",
+            "流水同步|复合游标",
+          ],
+          refs: [R.recognize, R.evaluate, R.queryPay, R.bill],
+        },
+        {
+          id: "feedback",
+          x: 245,
+          y: 465,
+          w: 215,
+          label: "结果回填 / 外部通知",
+          sub: "统一入口与状态门禁",
+          desc: "最终业务结果与通知状态分别保存。小票和外部回调可能竞争同一订单，必须检查核心订单当前是否仍允许回填。",
+          states: [
+            "出票业务状态|order_status",
+            "上游反馈状态|ret_feedback_result_status",
+          ],
+          refs: [R.result, R.callback, R.refundCallback],
+        },
+        {
+          id: "archive",
+          x: 490,
+          y: 465,
+          w: 215,
+          label: "统计 / 隐私 / 归档",
+          sub: "独立快照与数据生命周期",
+          desc: "统计数据由独立任务生成；到期脱敏后可归档。跨表处理先固定本批 ID，而不是各表分别任意 LIMIT。",
+          states: [
+            "实时业务表|热数据",
+            "历史业务表|*_his",
+            "归档前置|报表覆盖检查",
+          ],
+          refs: [R.mask, R.archive, R.archiveSql],
+        },
+        {
+          id: "alerts",
+          x: 735,
+          y: 465,
+          w: 215,
+          label: "告警 / 异步补偿",
+          sub: "余额提醒与未完成工作恢复",
+          desc: "告警按阈值和受理记录控制频次。异步任务除占位 TTL 外，还需要能够重新发现未完成工作的扫描入口。",
+          states: ["通知状态|受理 / 失败", "恢复依据|待处理状态或索引"],
+          refs: [R.alert, R.jobs],
+        },
+        {
+          id: "mq",
+          x: 25,
+          y: 645,
+          w: 215,
+          label: "RocketMQ",
+          sub: "普通推单 / 改签 / TTL",
+          desc: "用于源码中明确存在的订单推单、改签消息与处理超时等异步链路。不是每个业务入口都必经它。",
+          states: [
+            "订单推送|TOPIC_ORDER_PUSH",
+            "改签消息|TOPIC_CHANGE",
+            "处理超时|延迟消息",
+          ],
+          refs: [R.pushMq, R.rebookMq],
+        },
+        {
+          id: "redis",
+          x: 265,
+          y: 645,
+          w: 215,
+          label: "Redis",
+          sub: "队列、在线态、锁与占位",
+          desc: "待派 ZSet、在线态、权重缓存、互斥锁和短期预占各有不同语义。一个 Redis key 不能同时证明互斥、幂等和可靠恢复。",
+          states: ["临时协调|TTL / 锁", "待处理索引|ZSet", "配置读取|Hash"],
+          refs: [R.queue, R.reserve, R.dedup],
+        },
+        {
+          id: "mysql",
+          x: 505,
+          y: 645,
+          w: 215,
+          label: "MySQL / MyBatis",
+          sub: "业务记录与历史表",
+          desc: "保存订单、行程、乘客、处理日志、路由与策略、识别任务、账单和统计快照。Mapper 与 XML 对应具体查询和更新。",
+          states: ["持久业务事实|订单 / 处理记录", "配置与快照|独立于临时占位"],
+          refs: [R.result, R.archiveSql],
+        },
+        {
+          id: "mqtt",
+          x: 745,
+          y: 645,
+          w: 215,
+          label: "MQTT / WSBus",
+          sub: "客户端通知与 pong",
+          desc: "WSBus 条件启用时承载客户端唤醒和 pong。共享订阅决定同组节点的消息分发，短期去重与实际业务校验分别执行。",
+          states: [
+            "启用条件|ws.bus.mqtt.enabled",
+            "通知语义|唤醒，不是已指派",
+            "本地 WS 回退|代码存在，注册未确认",
+          ],
+          refs: [R.mqtt, R.pong, R.dedup],
+        },
+      ];
+      const edges = [
+        ["platform", "open", "call"],
+        ["staff", "business-api", "call"],
+        ["admin", "business-api", "call"],
+        ["open", "issue", "call"],
+        ["open", "routes", "call"],
+        ["business-api", "issue", "call"],
+        ["business-api", "receipt-pay", "call"],
+        ["job", "archive", "async"],
+        ["job", "alerts", "async"],
+        ["issue", "feedback", "call"],
+        ["routes", "feedback", "call"],
+        ["receipt-pay", "feedback", "call"],
+        ["mq", "issue", "async"],
+        ["mq", "routes", "async"],
+        ["issue", "redis", "data"],
+        ["routes", "mysql", "data"],
+        ["receipt-pay", "mysql", "data"],
+        ["feedback", "mysql", "data"],
+        ["archive", "mysql", "data"],
+        ["alerts", "redis", "data"],
+        ["issue", "mqtt", "async"],
+        ["mqtt", "staff", "async"],
+      ];
+      const $ = (id) => document.getElementById(id);
+      const esc = (value) =>
+        String(value ?? "").replace(
+          /[&<>"']/g,
+          (c) =>
+            ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[c],
+        );
+      let mode = "map",
+        scenario = "issue",
+        step = 0,
+        branch = "normal",
+        selectedNode = "",
+        zoom = 1,
+        timer = null;
+      const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      let agents = [],
+        cursor = -1,
+        graphWidth = 1000,
+        graphHeight = 750,
+        resizeTimer = null;
+      function scenarioSteps() {
+        const base = scenarioData[scenario].steps.map((x) => ({
+          ...x,
+          states: [...x.states],
+        }));
+        if (scenario === "issue" && branch === "waiting")
+          return [
+            ...base.slice(0, 6),
+            s(
+              "暂无合格客服",
+              "派单策略",
+              "待派票池",
+              "规则判断",
+              "无人在线、容量用尽或资格不符时，不把轻量通知当成分配成功。订单继续等待后续拉单或协调。",
+              ["核心订单|LOCK", "指派用户|空或 -1", "待派队列|仍需等待"],
+              R.wake,
+            ),
+          ];
+        if (scenario === "rumination" && branch === "exhausted")
+          return [
+            ...base.slice(0, 3),
+            s(
+              "已达到动态上限",
+              "反刍规则",
+              "结果服务",
+              "规则判断",
+              "当前已用次数达到有效上限，本轮不再回收到待派队列。",
+              ["本轮决定|CALLBACK", "是否重派|否"],
+              R.limit,
+            ),
+            s(
+              "最终失败回填",
+              "结果服务",
+              "外部供应商",
+              "外部 HTTP",
+              "走最终无票反馈，记录供应商受理结果，不重新推送外部入站消息。",
+              ["业务结果|出票失败", "反馈结果|单独记录"],
+              R.result,
+            ),
+          ];
+        if (scenario === "receipt" && branch === "ambiguous")
+          return [
+            ...base.slice(0, 3),
+            s(
+              "多个候选同时匹配",
+              "匹配服务",
+              "人工审核",
+              "规则判断",
+              "识别字段可读，但业务归属不唯一。停止自动绑定，交人工核对。",
+              [
+                "识别状态|成功（1）",
+                "匹配状态|NEED_REVIEW",
+                "任务状态|FAILED",
+                "核心订单|LOCK",
+              ],
+              R.matcher,
+              "此处 FAILED 是识别任务的匹配失败，不代表核心订单已出票失败。",
+            ),
+          ];
+        if (scenario === "receipt" && branch === "blocked")
+          return [
+            ...base.slice(0, 6),
+            s(
+              "整单条件未通过",
+              "自动出票服务",
+              "人工处理",
+              "规则判断",
+              "例如没有匹配流水，或整单小票不齐。保留已识别成功的任务结果，不自动推进订单。",
+              [
+                "任务状态|SUCCESS",
+                "匹配状态|MATCHED",
+                "自动出票|BLOCKED",
+                "核心订单|LOCK",
+              ],
+              R.evaluate,
+              "“识别成功”和“可自动出票”不能合并成同一个成功状态。",
+            ),
+          ];
+        if (scenario === "payment" && branch === "expired") {
+          base[4] = s(
+            "A 未提交，预占到期",
+            "人工核对",
+            "Redis",
+            "TTL 到期",
+            "仅临时预占到期，不代表流水永久可用。B 再次竞争时仍需检查近期订单。",
+            ["原预占|到期释放", "业务回填|尚未发生"],
+            R.reserve,
+          );
+          base[5] = s(
+            "B 重新竞争并提交",
+            "订单 B",
+            "回填服务",
+            "流水级锁",
+            "B 可重新竞争预占；提交时仍要获取流水锁并复查数据库和占用归属。",
+            ["新预占|订单 B（示例）", "最终复查|不可省略"],
+            R.payLock,
+          );
+        }
+        if (scenario === "refund" && branch === "notifyFailed")
+          return [
+            ...base.slice(0, 6),
+            s(
+              "上游通知失败",
+              "回调服务",
+              "待补偿记录",
+              "外部 HTTP",
+              "外部已经成功，但通知上游未成功。记录回调通知失败，内部业务状态仍保持待处理。",
+              [
+                "外部结果|成功",
+                "回调状态|external_callback_status = 3",
+                "内部退票|待处理 = 0",
+              ],
+              R.refundCallback,
+            ),
+            s(
+              "后续重试或同步",
+              "补偿任务",
+              "上游平台",
+              "后台任务",
+              "保留待处理与失败记录，等待后续回调重试或上游状态查询同步；是否主动重发通知取决于实际入口。本次失败并未直接排入人工通知重试队列。",
+              ["业务处理|待确认", "恢复方式|重试 / 查询同步"],
+              R.jobs,
+            ),
+          ];
+        if (scenario === "refund" && branch === "manual")
+          return [
+            ...base.slice(0, 5),
+            s(
+              "外部返回人工入口",
+              "外部通道",
+              "退回人工服务",
+              "HTTP",
+              "通过 /open/api/refund/return 将未终态订单恢复为人工待处理，并清理处理人等信息。",
+              ["路由去向|MANUAL", "内部退票|待处理 = 0"],
+              R.refundReturn,
+            ),
+            s(
+              "客服主动领取",
+              "客服界面",
+              "退票服务",
+              "HTTP / Redis 锁",
+              "校验额度和持单量，按紧急与发车时间取候选，逐票锁后二次确认。",
+              ["人工处理|开始", "处理日志|tk_pool_and_tk_user_total"],
+              R.refundManual,
+            ),
+            s(
+              "人工结果通知上游",
+              "客服结果服务",
+              "上游平台",
+              "外部 HTTP",
+              "提交处理结果，通知受理与业务终态按实际结果分别记录。",
+              ["处理结果|人工提交", "上游反馈|独立判断"],
+              R.refundCallback,
+            ),
+          ];
+        if (scenario === "rebook" && branch === "notifyFailed")
+          return [
+            ...base.slice(0, 6),
+            s(
+              "上游通知未成功",
+              "改签结果服务",
+              "待处理主单",
+              "外部 HTTP",
+              "乘客外部成功信息已更新，但上游通知失败，主单保持待处理并记录回调失败。",
+              ["外部结果|成功", "内部主单|待处理 = 0", "后续动作|补偿同步"],
+              R.rebookCallback,
+            ),
+          ];
+        if (scenario === "rebook" && branch === "nextChannel")
+          return [
+            ...base.slice(0, 5),
+            s(
+              "请求失败达到阈值",
+              "外部改签推送",
+              "路由服务",
+              "重试 / 规则",
+              "从当前通道之后继续按优先级筛选，可换外部通道、转人工或拒单。",
+              ["当前请求|失败", "下一去向|重新评估"],
+              R.rebookRetry,
+            ),
+            s(
+              "人工或下一通道接续",
+              "改签处理",
+              "乘客业务记录",
+              "业务调用",
+              "复用原改签主单和乘客信息继续处理，不能当成另一张普通出票订单。",
+              ["业务标识|原分配 ID", "乘客结果|逐个记录"],
+              R.rebookManual,
+            ),
+          ];
+        return base;
+      }
+      function defs() {
+        return '<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#91a4ba"/></marker><marker id="arrow-active" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#1d4ed8"/></marker></defs>';
+      }
+      function nodeMarkup(n, classes = "") {
+        return `<g class="node ${classes}" data-node="${esc(n.id)}" role="button" tabindex="0" aria-label="${esc(n.label)}"><rect x="${n.x}" y="${n.y}" width="${n.w}" height="73" rx="9"/><text class="node-title" x="${n.x + 15}" y="${n.y + 29}">${esc(n.label)}</text><text class="node-sub" x="${n.x + 15}" y="${n.y + 51}">${esc(n.sub)}</text></g>`;
+      }
+      function edgePath(a, b) {
+        const ac = { x: a.x + a.w / 2, y: a.y + (a.h || 73) / 2 },
+          bc = { x: b.x + b.w / 2, y: b.y + (b.h || 73) / 2 };
+        if (Math.abs(ac.y - bc.y) < 75) {
+          const left = bc.x > ac.x;
+          const ax = left ? a.x + a.w : a.x,
+            bx = left ? b.x : b.x + b.w;
+          return `M${ax},${ac.y} C${(ax + bx) / 2},${ac.y} ${(ax + bx) / 2},${bc.y} ${bx},${bc.y}`;
+        }
+        const down = bc.y > ac.y;
+        const ay = down ? a.y + (a.h || 73) : a.y,
+          by = down ? b.y : b.y + (b.h || 73);
+        return `M${ac.x},${ay} C${ac.x},${(ay + by) / 2} ${bc.x},${(ay + by) / 2} ${bc.x},${by}`;
+      }
+      function renderMap() {
+        const lookup = Object.fromEntries(nodes.map((n) => [n.id, n]));
+        let html =
+          defs() +
+          '<rect class="cluster" x="224" y="58" width="745" height="517" rx="13"/><text class="cluster-label" x="242" y="79">Java 后端 · 同一应用中的业务模块</text><text class="cluster-label" x="26" y="622">消息与数据基础设施</text>';
+        for (const [a, b, type] of edges) {
+          if (type === "data" && !$("show-storage").checked) continue;
+          const related =
+            !selectedNode || a === selectedNode || b === selectedNode;
+          html += `<path class="connector ${type === "async" ? "async" : type === "data" ? "data" : ""} ${related ? "" : "inactive-edge"}" d="${edgePath(lookup[a], lookup[b])}" marker-end="url(#arrow)"/>`;
+        }
+        for (const n of nodes) {
+          const connected =
+            !selectedNode ||
+            n.id === selectedNode ||
+            edges.some(
+              ([a, b]) =>
+                (a === selectedNode && b === n.id) ||
+                (b === selectedNode && a === n.id),
+            );
+          html += nodeMarkup(
+            n,
+            n.id === selectedNode
+              ? "selected"
+              : connected
+                ? ""
+                : "inactive-node",
+          );
+        }
+        graphWidth = 1000;
+        graphHeight = 750;
+        $("stage").classList.add("is-map");
+        $("graph").setAttribute("viewBox", "0 0 1000 750");
+        $("graph").innerHTML = html;
+        $("graph").setAttribute(
+          "aria-label",
+          "票务项目模块关系，点选模块查看详情",
+        );
+        if (selectedNode) {
+          const n = lookup[selectedNode];
+          renderInspector({
+            title: n.label,
+            from: n.sub,
+            to: "模块职责",
+            kind: "架构节点",
+            desc: n.desc,
+            states: n.states,
+            refs: n.refs,
+            branch: "",
+          });
+        } else renderWelcome();
+        bindGraph();
+      }
+      function flowPositions(count) {
+        const narrow = matchMedia("(max-width:760px)").matches;
+        return Array.from({ length: count }, (_, i) => {
+          const row = narrow ? i : Math.floor(i / 3),
+            col = narrow ? 0 : row % 2 ? 2 - (i % 3) : i % 3;
+          return {
+            id: "step-" + i,
+            x: narrow ? 20 : 32 + col * 321,
+            y: 36 + row * 136,
+            w: narrow ? 320 : 292,
+            h: 84,
+          };
+        });
+      }
+      function renderFlow() {
+        const steps = scenarioSteps(),
+          positions = flowPositions(steps.length);
+        step = Math.min(step, steps.length - 1);
+        let html = defs();
+        for (let i = 1; i < positions.length; i++) {
+          const path = edgePath(positions[i - 1], positions[i]),
+            current = i === step;
+          html += `<path class="connector ${current ? "current" : i < step ? "past" : ""} ${steps[i].kind.includes("异步") ? "async" : ""}" d="${path}" marker-end="url(#${i <= step ? "arrow-active" : "arrow"})"/>`;
+          if (current && !reduced)
+            html += `<circle r="4" fill="#1d4ed8"><animateMotion dur="1.8s" repeatCount="indefinite" path="${path}"/></circle>`;
+        }
+        positions.forEach((p, i) => {
+          const d = steps[i];
+          html += `<g class="node ${i === step ? "active" : i < step ? "visited" : ""}" data-step="${i}" role="button" tabindex="0" aria-label="第${i + 1}步：${esc(d.title)}"><rect x="${p.x}" y="${p.y}" width="${p.w}" height="84" rx="9"/><text class="node-number" x="${p.x + 16}" y="${p.y + 22}">${String(i + 1).padStart(2, "0")} · ${esc(d.kind)}</text><text class="node-title" x="${p.x + 16}" y="${p.y + 47}">${esc(d.title)}</text><text class="node-sub" x="${p.x + 16}" y="${p.y + 68}">${esc(d.from)} → ${esc(d.to)}</text></g>`;
+        });
+        const narrow = matchMedia("(max-width:760px)").matches;
+        graphWidth = narrow ? 360 : 1000;
+        graphHeight = Math.max(
+          (narrow ? steps.length : Math.ceil(steps.length / 3)) * 136 + 4,
+          310,
+        );
+        $("stage").classList.remove("is-map");
+        $("graph").setAttribute("viewBox", `0 0 ${graphWidth} ${graphHeight}`);
+        $("graph").innerHTML = html;
+        $("graph").setAttribute(
+          "aria-label",
+          scenarioData[scenario].name + "流程，按顺序逐步回放",
+        );
+        renderInspector({ ...steps[step], refs: [steps[step].ref] });
+        $("step-count").textContent = `${step + 1} / ${steps.length}`;
+        $("progress").max = steps.length - 1;
+        $("progress").value = step;
+        $("previous").disabled = step === 0;
+        $("next").disabled = step === steps.length - 1;
+        $("flow-step-list").innerHTML = steps
+          .map(
+            (d, i) =>
+              `<button class="step-dot" data-jump="${i}" aria-current="${i === step}" aria-label="跳到第${i + 1}步：${esc(d.title)}">${String(i + 1).padStart(2, "0")} ${esc(d.title)}</button>`,
+          )
+          .join("");
+        $("flow-step-list")
+          .querySelectorAll("[data-jump]")
+          .forEach((b) =>
+            b.addEventListener("click", () => {
+              pause();
+              step = Number(b.dataset.jump);
+              renderFlow();
+              updateHash();
+            }),
+          );
+        bindGraph();
+        applyZoom();
+      }
+      function renderInspector(d) {
+        $("inspector").innerHTML =
+          `<div class="inspector-top"><span>${mode === "flow" ? `第 ${step + 1} 步 · ${esc(d.from)}` : "模块详情"}</span><span class="kind">${esc(d.kind)}</span></div><h2>${esc(d.title)}</h2><p class="description">${esc(d.desc)}</p><section class="detail-section"><h3>${mode === "map" ? "职责与边界" : "这一步的状态"}</h3><dl class="state-list">${d.states
+            .map((row) => {
+              const [k, ...v] = row.split("|");
+              return `<div class="state-item"><dt>${esc(k)}</dt><dd>${esc(v.join("|"))}</dd></div>`;
+            })
+            .join(
+              "",
+            )}</dl></section>${d.branch ? `<p class="branch-note">${esc(d.branch)}</p>` : ""}<section class="detail-section"><h3>源码入口 · e9cfe08b</h3>${d.refs.map((r, i) => `<div class="source"><a href="${NOTE}${SOURCE_LINKS[r.path] ? "#" + SOURCE_LINKS[r.path] : ""}" target="_blank" rel="noopener">${esc(r.method)} ↗</a><p>${esc(r.path)}<br>L${r.line}</p><button data-copy="${i}">复制 Git 定位命令</button></div>`).join("")}</section><a class="related-note" href="${NOTE}#chapter-${String(scenarioData[scenario].chapter).padStart(2, "0")}" target="_blank" rel="noopener">展开源码教程 ↗</a>`;
+        $("inspector")
+          .querySelectorAll("[data-copy]")
+          .forEach((button) =>
+            button.addEventListener("click", async () => {
+              const r = d.refs[Number(button.dataset.copy)];
+              const command = `git show "e9cfe08b:${r.path}"`;
+              try {
+                await navigator.clipboard.writeText(command);
+                button.textContent = "已复制命令";
+                $("announcement").textContent = "已复制源码定位命令";
+              } catch {
+                button.textContent = "可选中文件路径复制；当前环境未开放剪贴板";
+              }
+            }),
+          );
+        $("announcement").textContent = d.title;
+      }
+      function renderWelcome() {
+        $("inspector").innerHTML =
+          '<div class="empty-selection"><h2>先建立一张地图</h2><p class="description">左边是参与者，中间是 Java 业务模块，下方是消息与数据设施。选中模块后，相关连接会被突出显示。</p><ul class="module-list"><li><strong>模块 ≠ 独立微服务</strong><span>Controller、Service、Mapper 仍属于 Maven 多模块后端。</span></li><li><strong>通知 ≠ 已派单</strong><span>MQTT 唤醒之后，还要拉单、复查与锁内分配。</span></li><li><strong>业务成功 ≠ 通知成功</strong><span>订单结果、处理日志与外部反馈分别保存。</span></li></ul><button class="primary-button" id="start-flow">跟随一张订单</button><p class="notice">从“普通出票”开始，再比较退票与改签的不同入口。存储连线可按需打开。</p></div>';
+        $("start-flow").addEventListener("click", () => {
+          scenario = "issue";
+          branch = "normal";
+          step = 0;
+          setMode("flow");
+        });
+      }
+      function bindGraph() {
+        $("graph")
+          .querySelectorAll("[data-node]")
+          .forEach((el) => {
+            const action = () => {
+              selectedNode =
+                selectedNode === el.dataset.node ? "" : el.dataset.node;
+              renderMap();
+            };
+            el.addEventListener("click", action);
+            el.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                action();
+              }
+            });
+          });
+        $("graph")
+          .querySelectorAll("[data-step]")
+          .forEach((el) => {
+            const action = () => {
+              pause();
+              step = Number(el.dataset.step);
+              renderFlow();
+              updateHash();
+            };
+            el.addEventListener("click", action);
+            el.addEventListener("keydown", (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                action();
+              }
+            });
+          });
+      }
+      function nav() {
+        $("scenario-nav").innerHTML = Object.entries(scenarioData)
+          .map(
+            ([id, d]) =>
+              `<button class="scenario-btn" data-scenario="${id}" aria-current="${id === scenario}"><span class="nav-dot"></span><span><strong>${d.name}</strong><small>${d.summary}</small></span></button>`,
+          )
+          .join("");
+        $("scenario-nav")
+          .querySelectorAll("button")
+          .forEach((b) =>
+            b.addEventListener("click", () => {
+              pause();
+              scenario = b.dataset.scenario;
+              branch = "normal";
+              step = 0;
+              setMode("flow");
+            }),
+          );
+      }
+      function setMode(value) {
+        pause();
+        mode = value;
+        zoom = 1;
+        $("stage").scrollTop = 0;
+        $("stage").scrollLeft = 0;
+        document
+          .querySelectorAll(".mode")
+          .forEach((b) =>
+            b.setAttribute("aria-selected", b.dataset.mode === mode),
+          );
+        $("diagram-view").hidden = mode === "lab";
+        $("lab").style.display = mode === "lab" ? "block" : "none";
+        $("playback").hidden = mode !== "flow";
+        $("map-options").hidden = mode !== "map";
+        $("flow-options").hidden = mode !== "flow";
+        $("flow-step-list").hidden = mode !== "flow";
+        if (mode === "map") {
+          $("view-title").textContent = "从入口到业务，再到存储";
+          $("view-subtitle").textContent =
+            "先看模块如何协作。点击节点，查看职责、数据边界和源码入口。";
+          $("diagram-caption").textContent =
+            "Java 多模块后端，不等同于微服务拆分";
+          renderMap();
+        }
+        if (mode === "flow") {
+          const d = scenarioData[scenario];
+          $("view-title").textContent = d.name + "的完整路径";
+          $("view-subtitle").textContent = d.subtitle;
+          $("diagram-caption").textContent =
+            "示例业务回放 · 按源码调用顺序展开";
+          $("branch").innerHTML = Object.entries(d.branches)
+            .map(
+              ([key, label]) =>
+                `<option value="${key}"${key === branch ? " selected" : ""}>${label}</option>`,
+            )
+            .join("");
+          renderFlow();
+        }
+        if (mode === "lab") {
+          $("view-title").textContent = "让一条派单规则变得可见";
+          $("view-subtitle").textContent =
+            "三位虚构客服，一张示例订单。修改容量、在线状态和权重，再观察筛选与选择。";
+          renderLab();
+        }
+        nav();
+        if (mode !== "lab") {
+          if (mode === "map" && innerWidth <= 760) {
+            zoom = 0.85;
+            applyZoom();
+          } else fitGraph();
+        }
+        updateHash();
+      }
+      function pause() {
+        if (timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+        $("play").innerHTML =
+          '<svg viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></svg><span>播放流程</span>';
+      }
+      function play() {
+        if (timer) {
+          pause();
+          return;
+        }
+        if (step === scenarioSteps().length - 1) step = 0;
+        $("play").innerHTML =
+          '<svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg><span>暂停回放</span>';
+        renderFlow();
+        timer = setInterval(
+          () => {
+            if (step >= scenarioSteps().length - 1) {
+              pause();
+              return;
+            }
+            step++;
+            renderFlow();
+            updateHash();
+            if (step === scenarioSteps().length - 1) pause();
+          },
+          Number($("speed").value),
+        );
+      }
+      function followCurrent() {
+        if (mode !== "flow") return;
+        const active = $("graph").querySelector('[data-step="' + step + '"]');
+        if (!active) return;
+        const bounds = active.getBoundingClientRect(),
+          stage = $("stage"),
+          frame = stage.getBoundingClientRect();
+        if (
+          bounds.top < frame.top ||
+          bounds.bottom > frame.bottom ||
+          bounds.left < frame.left ||
+          bounds.right > frame.right
+        )
+          stage.scrollTo({
+            top:
+              stage.scrollTop +
+              bounds.top -
+              frame.top -
+              (stage.clientHeight - bounds.height) / 2,
+            left:
+              stage.scrollLeft +
+              bounds.left -
+              frame.left -
+              (stage.clientWidth - bounds.width) / 2,
+            behavior: "instant",
+          });
+      }
+      function applyZoom() {
+        $("graph").style.width = Math.round(graphWidth * zoom) + "px";
+        $("graph").style.height = Math.round(graphHeight * zoom) + "px";
+        $("zoom-value").textContent = Math.round(zoom * 100) + "%";
+        followCurrent();
+      }
+      function fitGraph() {
+        const stage = $("stage"),
+          widthScale = stage.clientWidth / graphWidth;
+        zoom = Math.min(
+          1,
+          widthScale,
+          mode === "flow" && innerWidth > 760
+            ? stage.clientHeight / graphHeight
+            : widthScale,
+        );
+        applyZoom();
+        if (mode === "map") {
+          stage.scrollLeft = 0;
+          stage.scrollTop = 0;
+        }
+      }
+      function updateHash() {
+        const hash =
+          mode === "flow" ? `#flow/${scenario}/${branch}/${step}` : "#" + mode;
+        if (location.hash !== hash) history.replaceState(null, "", hash);
+      }
+      function resetAgents() {
+        agents = [
+          {
+            id: 101,
+            name: "客服 A",
+            online: true,
+            weight: 8,
+            max: 2,
+            load: 2,
+            age: 2,
+          },
+          {
+            id: 102,
+            name: "客服 B",
+            online: true,
+            weight: 5,
+            max: 3,
+            load: 1,
+            age: 8,
+          },
+          {
+            id: 103,
+            name: "客服 C",
+            online: true,
+            weight: 5,
+            max: 2,
+            load: 0,
+            age: 5,
+          },
+        ];
+        cursor = -1;
+      }
+      function decision() {
+        const eligible = agents.filter((a) => a.online && a.load < a.max),
+          strategy = $("strategy").value;
+        const byLeast = (a, b) =>
+          a.load - b.load || b.age - a.age || a.id - b.id;
+        let sorted = [...eligible];
+        if (strategy === "weighted") {
+          const positive = eligible.filter((a) => a.weight > 0);
+          sorted = positive.length
+            ? positive.sort(
+                (a, b) => b.weight - a.weight || b.age - a.age || a.id - b.id,
+              )
+            : sorted.sort(byLeast);
+        } else if (strategy === "least") sorted.sort(byLeast);
+        else if (eligible.length) {
+          const order = [...eligible].sort((a, b) => a.id - b.id),
+            position = order.findIndex((a) => a.id === agents[cursor]?.id),
+            start = (position + 1) % order.length;
+          sorted = order.slice(start).concat(order.slice(0, start));
+        }
+        return { eligible, sorted, selected: sorted[0], strategy };
+      }
+      function renderLab() {
+        const d = decision();
+        $("agents").innerHTML = agents
+          .map((a, i) => {
+            const selected = d.selected?.id === a.id;
+            const reason = !a.online
+              ? "离线，排除"
+              : a.load >= a.max
+                ? "已达上限，排除"
+                : selected
+                  ? "下一单优先给这里"
+                  : "合格候选";
+            return `<div class="agent-row"><div class="agent-name"><strong>${a.name}</strong><label><input type="checkbox" data-agent="${i}" data-field="online"${a.online ? " checked" : ""}>在线</label></div><div class="agent-inputs"><label>权重<input type="number" min="0" max="10" value="${a.weight}" data-agent="${i}" data-field="weight" aria-label="${a.name}权重"></label><label>并发上限<input type="number" min="1" max="6" value="${a.max}" data-agent="${i}" data-field="max" aria-label="${a.name}并发上限"></label><label>当前持单<input type="number" min="0" max="6" value="${a.load}" data-agent="${i}" data-field="load" aria-label="${a.name}当前持单"></label></div><div class="agent-result"><strong>${reason}</strong><span>上次处理完成：${a.age} 分钟前（示例）</span><div class="capacity" aria-label="${a.load}单，上限${a.max}">${Array.from({ length: Math.max(a.max, a.load) }, (_, j) => `<i class="${j < a.load ? "held" : selected && j === a.load ? "next" : ""}"></i>`).join("")}</div></div></div>`;
+          })
+          .join("");
+        $("agents")
+          .querySelectorAll("input")
+          .forEach((input) =>
+            input.addEventListener("change", () => {
+              const a = agents[Number(input.dataset.agent)],
+                field = input.dataset.field;
+              if (field === "online") a.online = input.checked;
+              else {
+                const min = field === "max" ? 1 : 0,
+                  max = field === "weight" ? 10 : 6;
+                a[field] = Math.max(
+                  min,
+                  Math.min(max, Number(input.value) || min),
+                );
+              }
+              renderLab();
+            }),
+          );
+        $("assign").disabled = !d.selected;
+        const rule =
+          d.strategy === "weighted"
+            ? "先排除离线和满额，再从正权重候选中按权重排序。同权重时，较早完成上一单者优先。本例基础策略为最少持单；无正权重候选时恢复该策略。"
+            : d.strategy === "least"
+              ? "先比较当前持单数；同分时选较早完成上一单的人，最后按用户 ID 排序。"
+              : "当前快照按用户 ID 排列候选。上次用户仍在候选集合时取下一人；其已离线或满额时，从当前集合首位开始。源码记录了上线时间，但读取后又按 ID 排序。";
+        $("lab-trace").innerHTML =
+          `<h2>${d.selected ? "下一单：" + d.selected.name : "暂时没有可接客服"}</h2><p>${rule}</p><section class="detail-section"><h3>本次决策经过</h3><ol><li>3 名示例客服，${agents.filter((a) => a.online).length} 名在线。</li><li>资格与容量筛选后，${d.eligible.length} 名可接。</li><li>${d.selected ? "按当前策略选中 " + d.selected.name + "。" : "全部被过滤，保留待派订单。"}</li></ol></section><p class="branch-note">权重优先不是按比例分流。最高权重者满额时仍会被排除，不能只看权重数值。</p><section class="detail-section"><h3>对应源码</h3><div class="source"><a href="${NOTE}#${SOURCE_LINKS[R.weights.path] || "chapter-08"}" target="_blank" rel="noopener">WebSocketManager · L1555 ↗</a><p>resolveWeightedPriorityUserId<br>getWeightedPriorityCandidateComparator</p></div></section><p class="notice">这是当前规则的简化教学模型，省略通道、反刍、核验等额外资格判断；真实分配仍需在锁内复查。</p>`;
+      }
+      document
+        .querySelectorAll(".mode")
+        .forEach((b) =>
+          b.addEventListener("click", () => setMode(b.dataset.mode)),
+        );
+      $("show-storage").addEventListener("change", renderMap);
+      $("zoom-in").addEventListener("click", () => {
+        zoom = Math.min(1.7, zoom + 0.15);
+        applyZoom();
+      });
+      $("zoom-out").addEventListener("click", () => {
+        zoom = Math.max(0.2, zoom - 0.15);
+        applyZoom();
+      });
+      $("fit").addEventListener("click", fitGraph);
+      $("branch").addEventListener("change", () => {
+        pause();
+        branch = $("branch").value;
+        step = 0;
+        renderFlow();
+        updateHash();
+      });
+      $("reset").addEventListener("click", () => {
+        pause();
+        step = 0;
+        renderFlow();
+        updateHash();
+      });
+      $("previous").addEventListener("click", () => {
+        pause();
+        step = Math.max(0, step - 1);
+        renderFlow();
+        updateHash();
+      });
+      $("next").addEventListener("click", () => {
+        pause();
+        step = Math.min(scenarioSteps().length - 1, step + 1);
+        renderFlow();
+        updateHash();
+      });
+      $("play").addEventListener("click", play);
+      $("speed").addEventListener("change", () => {
+        if (timer) {
+          pause();
+          play();
+        }
+      });
+      $("progress").addEventListener("input", () => {
+        pause();
+        step = Number($("progress").value);
+        renderFlow();
+        updateHash();
+      });
+      $("strategy").addEventListener("change", () => {
+        cursor = -1;
+        renderLab();
+      });
+      $("lab-reset").addEventListener("click", () => {
+        resetAgents();
+        $("assigned-log").textContent = "先过滤资格与容量，再按策略选择。";
+        renderLab();
+      });
+      $("assign").addEventListener("click", () => {
+        const chosen = decision().selected;
+        if (!chosen) return;
+        chosen.load++;
+        cursor = agents.findIndex((a) => a.id === chosen.id);
+        $("assigned-log").textContent =
+          "已将一张示例订单分给 " + chosen.name + "，当前持单 +1。";
+        renderLab();
+      });
+      $("download").addEventListener("click", () => {
+        pause();
+        const blob = new Blob(
+          ["<!doctype html>\n" + document.documentElement.outerHTML],
+          { type: "text/html;charset=utf-8" },
+        );
+        const url = URL.createObjectURL(blob),
+          a = document.createElement("a");
+        a.href = url;
+        a.download = "ticket-architecture.html";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      });
+      document.addEventListener("keydown", (e) => {
+        if (mode !== "flow" || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName))
+          return;
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          $("next").click();
+        } else if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          $("previous").click();
+        }
+      });
+      window.addEventListener("resize", () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          if (mode === "flow") renderFlow();
+          if (mode !== "lab") fitGraph();
+        }, 100);
+      });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) pause();
+      });
+      const initial = location.hash.slice(1).split("/");
+      if (["map", "flow", "lab"].includes(initial[0])) mode = initial[0];
+      if (scenarioData[initial[1]]) scenario = initial[1];
+      if (scenarioData[scenario].branches[initial[2]]) branch = initial[2];
+      step = Math.max(
+        0,
+        Math.min(scenarioSteps().length - 1, Number(initial[3]) || 0),
+      );
+      resetAgents();
+      setMode(mode);
+    </script>
+  </body>
+</html>

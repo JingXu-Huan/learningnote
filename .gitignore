@@ -72,3 +72,6 @@ out/
 tmp/
 temp/
 
+
+# 本地界面验收截图
+.impeccable/review/

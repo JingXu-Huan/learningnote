@@ -111,6 +111,29 @@ class PublicationTests(unittest.TestCase):
         ]:
             self.assertTrue(hooks.has_note_content(text))
 
+    def test_visual_pages_publish_only_explicitly_selected_tools(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            route = hooks.VISUAL_PAGES[0]
+            source = root / "website" / route
+            source.parent.mkdir(parents=True)
+            source.write_text("<!doctype html><title>学习工具</title>", encoding="utf-8")
+            (source.parent / "private.html").write_text("unselected", encoding="utf-8")
+            docs = root / "docs"
+            with patch.object(hooks, "ROOT", root):
+                hooks.copy_visual_pages(docs)
+            self.assertEqual((docs / route).read_bytes(), source.read_bytes())
+            self.assertEqual(
+                [p.relative_to(docs).as_posix() for p in docs.rglob("*") if p.is_file()],
+                list(hooks.VISUAL_PAGES),
+            )
+
+    def test_missing_visual_page_stops_publication(self):
+        with TemporaryDirectory() as directory:
+            with patch.object(hooks, "LIBRARY", hooks.Library([])):
+                with self.assertRaisesRegex(ValueError, "visualization was not published"):
+                    hooks.on_post_build(SimpleNamespace(site_dir=directory))
+
     def test_links_with_chinese_spaces_alias_and_fragment(self):
         html = self.render("[[章节 (一)#内存 管理|地址转换]]")
         link = html.find("a")
