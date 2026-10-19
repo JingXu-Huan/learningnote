@@ -1,0 +1,2529 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="对照 Go 与 Java，交互学习堆栈、逃逸分析、mcache、TLAB、Go GC、G1 与 happens-before。"
+    />
+    <title>Go × Java 内存实验室 · 景旭的编程笔记</title>
+    <style>
+      :root {
+        --bg: #f4f6f9;
+        --paper: #fff;
+        --ink: #172b45;
+        --muted: #56667a;
+        --line: #dce3ed;
+        --blue: #1d4ed8;
+        --pale: #eef3ff;
+        --green: #14664d;
+        --green-bg: #edf7f2;
+        --amber: #87510b;
+        --amber-bg: #fff5e4;
+        --red: #a42c35;
+        --red-bg: #fff0f0;
+        --sans: Geist, "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
+        --mono: Consolas, "SFMono-Regular", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      body {
+        margin: 0;
+        color: var(--ink);
+        background: var(--bg);
+        font: 15px/1.75 var(--sans);
+      }
+      ::selection {
+        background: var(--blue);
+        color: white;
+      }
+      a {
+        color: var(--blue);
+        text-underline-offset: 4px;
+      }
+      button,
+      select {
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      button {
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 8px 14px;
+        line-height: 1.5;
+      }
+      button:hover {
+        border-color: var(--blue);
+        background: var(--pale);
+      }
+      button:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+      :focus-visible {
+        outline: 3px solid #7a9df0;
+        outline-offset: 3px;
+      }
+      select {
+        max-width: 100%;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        padding: 8px 30px 8px 10px;
+      }
+      code,
+      pre {
+        font-family: var(--mono);
+      }
+      code {
+        overflow-wrap: anywhere;
+      }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        font-size: 13px;
+        line-height: 1.85;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      h1 {
+        font-size: 25px;
+        letter-spacing: -0.025em;
+        line-height: 1.4;
+      }
+      h2 {
+        font-size: 21px;
+        line-height: 1.5;
+      }
+      h3 {
+        font-size: 16px;
+        line-height: 1.6;
+      }
+      p + p {
+        margin-top: 12px;
+      }
+      .small {
+        font-size: 12px;
+      }
+      .muted {
+        color: var(--muted);
+      }
+      .go {
+        color: var(--blue);
+      }
+      .java {
+        color: var(--green);
+      }
+      .top {
+        background: var(--paper);
+        border-bottom: 1px solid var(--line);
+      }
+      .top-inner {
+        max-width: 1360px;
+        margin: auto;
+        padding: 18px 28px 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+      }
+      .top p {
+        font-size: 13px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+      .top-links {
+        display: flex;
+        gap: 18px;
+        flex-shrink: 0;
+        font-size: 13px;
+      }
+      .navigation {
+        position: sticky;
+        top: 0;
+        z-index: 5;
+        background: white;
+        border-bottom: 1px solid var(--line);
+      }
+      .tabs {
+        display: flex;
+        gap: 5px;
+        max-width: 1360px;
+        margin: auto;
+        padding: 8px 28px;
+        overflow-x: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--line) white;
+      }
+      .tab {
+        white-space: nowrap;
+        background: transparent;
+        border-color: transparent;
+        padding: 9px 16px;
+        color: var(--muted);
+      }
+      .tab[aria-selected="true"] {
+        background: var(--pale);
+        color: var(--blue);
+        font-weight: 650;
+      }
+      main {
+        max-width: 1360px;
+        margin: 0 auto;
+        padding: 24px 28px 44px;
+      }
+      .section-heading {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 20px;
+        margin-bottom: 18px;
+      }
+      .section-heading p {
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 76ch;
+        margin-top: 6px;
+      }
+      .scope {
+        font-size: 12px;
+        color: var(--muted);
+        max-width: 270px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .paper {
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .pair {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+      }
+      .lang-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--line);
+        gap: 12px;
+      }
+      .lang-head h3 {
+        font-size: 18px;
+      }
+      .lang-head span {
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .memory-map {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        padding: 18px;
+      }
+      .region {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        padding: 16px;
+        min-height: 100px;
+        border-radius: 8px;
+        background: white;
+        line-height: 1.6;
+      }
+      .region strong {
+        font-size: 15px;
+      }
+      .region span {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .region.shared {
+        grid-column: 1/-1;
+        min-height: 90px;
+        background: var(--pale);
+        border-color: #becdf5;
+      }
+      .region.impl {
+        border-style: dashed;
+      }
+      .region[aria-pressed="true"] {
+        border-color: var(--blue);
+        outline: 2px solid var(--blue);
+        outline-offset: -2px;
+      }
+      .region-foot {
+        padding: 0 20px 16px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .explanation {
+        margin-top: 18px;
+        padding: 18px 22px;
+        background: white;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        display: grid;
+        grid-template-columns: 190px 1fr;
+        gap: 22px;
+      }
+      .explanation p {
+        font-size: 14px;
+        max-width: 90ch;
+      }
+      .explanation a {
+        font-size: 12px;
+      }
+      .boundary {
+        margin-top: 20px;
+        padding: 14px 0;
+        display: flex;
+        gap: 18px;
+        border-top: 1px solid var(--line);
+        font-size: 13px;
+      }
+      .boundary strong {
+        flex-shrink: 0;
+      }
+      .source-line {
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-bottom: 18px;
+      }
+      .toolbar label {
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .primary {
+        background: var(--blue);
+        border-color: var(--blue);
+        color: white;
+      }
+      .primary:hover {
+        background: #173faa;
+        color: white;
+      }
+      .playback {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .counter {
+        font: 13px var(--mono);
+        min-width: 58px;
+        text-align: center;
+        color: var(--muted);
+      }
+      .code-pane {
+        padding: 16px 20px;
+        background: #f8fafc;
+        border-bottom: 1px solid var(--line);
+        min-height: 150px;
+      }
+      .life-diagram {
+        padding: 20px;
+        display: grid;
+        grid-template-columns: 1fr 28px 1fr;
+        gap: 10px;
+        min-height: 235px;
+        align-items: stretch;
+      }
+      .memory-zone {
+        padding: 12px;
+        border: 1px dashed #aebdce;
+        border-radius: 8px;
+        min-width: 0;
+      }
+      .zone-title {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 12px;
+      }
+      .cell {
+        padding: 12px 10px;
+        border: 1px solid var(--line);
+        background: white;
+        border-radius: 6px;
+        font-size: 13px;
+        overflow-wrap: anywhere;
+      }
+      .cell + .cell {
+        margin-top: 9px;
+      }
+      .cell.live {
+        background: var(--pale);
+        border-color: #8da8ef;
+      }
+      .cell.dead {
+        color: var(--red);
+        border-color: #d6a0a4;
+        border-style: dashed;
+        background: var(--red-bg);
+      }
+      .cell.free {
+        background: var(--green-bg);
+        color: var(--green);
+        border-style: dashed;
+      }
+      .cell.empty {
+        color: var(--muted);
+        background: transparent;
+        border-style: dashed;
+      }
+      .arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--blue);
+        font-size: 21px;
+      }
+      .lane-note {
+        padding: 0 20px 18px;
+        font-size: 13px;
+        min-height: 67px;
+      }
+      .step-detail {
+        margin: 18px 0 0;
+        background: var(--pale);
+        padding: 17px 22px;
+        border-radius: 10px;
+      }
+      .step-detail p {
+        margin-top: 5px;
+        font-size: 14px;
+        max-width: 100ch;
+      }
+      .step-strip {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+      .step-strip button {
+        padding: 6px 10px;
+        font-size: 12px;
+        background: white;
+      }
+      .step-strip button[aria-current="step"] {
+        background: var(--blue);
+        color: white;
+        border-color: var(--blue);
+      }
+      .reading {
+        margin-top: 30px;
+      }
+      .reading h3 {
+        margin: 20px 0 8px;
+      }
+      .table-wrap {
+        overflow-x: auto;
+        scrollbar-color: var(--line) var(--bg);
+        scrollbar-width: thin;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+        text-align: left;
+      }
+      th,
+      td {
+        padding: 13px 16px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        background: #f8fafc;
+        font-weight: 650;
+      }
+      td:first-child {
+        font-weight: 600;
+        width: 145px;
+      }
+      .reading p {
+        font-size: 14px;
+        max-width: 90ch;
+      }
+      .reading details {
+        padding: 13px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      summary {
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      details p {
+        margin-top: 9px;
+        color: var(--muted);
+      }
+      .allocator {
+        padding: 22px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr;
+        gap: 12px;
+      }
+      .alloc-node {
+        position: relative;
+        padding: 17px 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-height: 128px;
+      }
+      .alloc-node strong {
+        font-size: 17px;
+        display: block;
+      }
+      .alloc-node p {
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 6px;
+      }
+      .alloc-node.active {
+        background: var(--pale);
+        border-color: var(--blue);
+        outline: 1px solid var(--blue);
+      }
+      .alloc-node.passed {
+        background: var(--green-bg);
+        border-color: #a1cbb9;
+      }
+      .alloc-node.skipped {
+        opacity: 0.45;
+        border-style: dashed;
+      }
+      .alloc-node:not(:last-child)::after {
+        content: "→";
+        position: absolute;
+        right: -12px;
+        top: 44px;
+        background: white;
+        color: var(--muted);
+        z-index: 1;
+      }
+      .slots {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        padding: 0 22px 22px;
+      }
+      .slot {
+        width: 46px;
+        height: 38px;
+        border: 1px solid #aebdce;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font: 12px var(--mono);
+        background: #f8fafc;
+      }
+      .slot.used {
+        background: var(--pale);
+        border-color: var(--blue);
+        color: var(--blue);
+      }
+      .slot-desc {
+        width: 100%;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 5px;
+      }
+      .gc-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 320px;
+        gap: 20px;
+      }
+      .diagram-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--line);
+        gap: 14px;
+      }
+      .status {
+        font-size: 12px;
+        color: var(--green);
+        background: var(--green-bg);
+        padding: 3px 10px;
+        border-radius: 5px;
+      }
+      .status.pause {
+        background: var(--amber-bg);
+        color: var(--amber);
+      }
+      .gc-svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        min-height: 265px;
+        font-family: var(--sans);
+      }
+      .gc-svg text {
+        fill: var(--ink);
+        font-size: 14px;
+      }
+      .gc-svg .sub {
+        font-size: 12px;
+        fill: var(--muted);
+      }
+      .gc-svg .edge {
+        stroke: #7e94ad;
+        stroke-width: 2;
+        fill: none;
+        marker-end: url(#edge-arrow);
+      }
+      .gc-svg .node rect {
+        fill: white;
+        stroke: #9babc0;
+        stroke-width: 1.5;
+        transition:
+          fill 0.3s,
+          stroke 0.3s;
+      }
+      .gc-svg .node.grey rect {
+        fill: #e4eaf2;
+        stroke: #64748b;
+        stroke-dasharray: 5 3;
+      }
+      .gc-svg .node.black rect {
+        fill: var(--blue);
+        stroke: var(--blue);
+      }
+      .gc-svg .node.black text {
+        fill: white;
+      }
+      .gc-svg .node.garbage rect {
+        fill: var(--red-bg);
+        stroke: #be747b;
+        stroke-dasharray: 5 3;
+      }
+      .gc-svg .node.free rect {
+        fill: var(--green-bg);
+        stroke: #7cae99;
+        stroke-dasharray: 3 3;
+      }
+      .gc-svg .node.free text {
+        fill: var(--green);
+      }
+      .gc-legend {
+        padding: 0 20px 16px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .gc-notes {
+        padding: 20px;
+        font-size: 14px;
+      }
+      .gc-notes h3 {
+        margin-bottom: 10px;
+      }
+      .gc-notes p {
+        margin-top: 12px;
+      }
+      .phase-source {
+        font-size: 12px;
+        margin-top: 14px;
+      }
+      .g1-regions {
+        padding: 22px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px;
+        min-height: 320px;
+      }
+      .g1-region {
+        padding: 12px;
+        border: 1px dashed #aebdce;
+        border-radius: 8px;
+      }
+      .g1-region h3 {
+        font-size: 13px;
+        margin-bottom: 12px;
+      }
+      .g1-region .cell {
+        font-size: 12px;
+      }
+      .g1-region .cell.moved {
+        animation: arrive 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes arrive {
+        from {
+          transform: translateY(16px);
+          background: #d9e6ff;
+        }
+        to {
+          transform: translateY(0);
+        }
+      }
+      .publication {
+        padding: 22px;
+      }
+      .thread-grid {
+        display: grid;
+        grid-template-columns: 1fr 180px 1fr;
+        gap: 18px;
+        align-items: center;
+      }
+      .thread {
+        padding: 17px;
+        background: #f8fafc;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+      }
+      .thread h3 {
+        margin-bottom: 12px;
+      }
+      .event {
+        padding: 9px 0;
+        font-size: 13px;
+        border-top: 1px solid var(--line);
+      }
+      .sync-bridge {
+        font-size: 12px;
+        text-align: center;
+        color: var(--muted);
+        padding: 12px 4px;
+      }
+      .sync-bridge.on {
+        color: var(--blue);
+        border-top: 2px solid var(--blue);
+        border-bottom: 2px solid var(--blue);
+      }
+      .result {
+        margin-top: 18px;
+        padding: 13px 16px;
+        background: var(--red-bg);
+        color: var(--red);
+        font-size: 14px;
+        border-radius: 7px;
+      }
+      .result.safe {
+        background: var(--green-bg);
+        color: var(--green);
+      }
+      .publication .pair {
+        margin-top: 20px;
+      }
+      .publication pre {
+        background: #f8fafc;
+        padding: 15px;
+        border-radius: 8px;
+        font-size: 12px;
+      }
+      .hb-chain {
+        font-size: 13px;
+        padding: 15px 0;
+        color: var(--blue);
+      }
+      footer {
+        margin-top: 30px;
+        padding-top: 18px;
+        border-top: 1px solid var(--line);
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+      }
+      .references {
+        margin-top: 30px;
+      }
+      .references h3 {
+        margin-bottom: 10px;
+      }
+      .references ul {
+        margin: 0;
+        padding-left: 22px;
+        font-size: 13px;
+      }
+      .references li {
+        margin: 7px 0;
+      }
+      .skip {
+        position: fixed;
+        top: -70px;
+        left: 15px;
+        z-index: 10;
+        padding: 10px;
+        background: white;
+      }
+      .skip:focus {
+        top: 10px;
+      }
+      @media (min-width: 1600px) {
+        main,
+        .top-inner,
+        .tabs {
+          max-width: 1480px;
+        }
+      }
+      @media (max-width: 1000px) {
+        .scope {
+          display: none;
+        }
+        .gc-layout {
+          grid-template-columns: 1fr;
+        }
+        .gc-notes {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px 24px;
+        }
+        .gc-notes h3 {
+          grid-column: 1/-1;
+          margin: 0;
+        }
+        .thread-grid {
+          grid-template-columns: 1fr 115px 1fr;
+        }
+        .memory-map {
+          padding: 14px;
+          gap: 10px;
+        }
+        .region {
+          padding: 12px;
+        }
+      }
+      @media (max-width: 720px) {
+        body {
+          font-size: 14px;
+        }
+        .top-inner {
+          padding: 15px 16px;
+          align-items: flex-start;
+        }
+        .top-links {
+          flex-direction: column;
+          gap: 4px;
+        }
+        h1 {
+          font-size: 21px;
+        }
+        .top p {
+          font-size: 12px;
+        }
+        .tabs {
+          padding: 7px 12px;
+        }
+        .tab {
+          font-size: 13px;
+          padding: 8px 12px;
+        }
+        main {
+          padding: 20px 16px 32px;
+        }
+        .section-heading {
+          margin-bottom: 14px;
+        }
+        h2 {
+          font-size: 19px;
+        }
+        .pair {
+          grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .explanation {
+          grid-template-columns: 1fr;
+          gap: 8px;
+          padding: 16px;
+        }
+        .boundary {
+          display: block;
+        }
+        .boundary strong {
+          display: block;
+          margin-bottom: 5px;
+        }
+        .lang-head {
+          padding: 13px 16px;
+        }
+        .code-pane {
+          padding: 14px 16px;
+          min-height: 0;
+        }
+        .life-diagram {
+          padding: 16px;
+          gap: 5px;
+          grid-template-columns: minmax(0, 1fr) 20px minmax(0, 1fr);
+          min-height: 210px;
+        }
+        .memory-zone {
+          padding: 9px;
+        }
+        .lane-note {
+          padding: 0 16px 14px;
+          min-height: 0;
+        }
+        .toolbar {
+          gap: 10px;
+        }
+        .toolbar label {
+          width: 100%;
+          flex-wrap: wrap;
+        }
+        .playback {
+          width: 100%;
+        }
+        .step-detail {
+          padding: 15px;
+        }
+        .allocator {
+          grid-template-columns: 1fr 1fr;
+          padding: 16px;
+          gap: 16px;
+        }
+        .alloc-node {
+          min-height: 110px;
+          padding: 13px;
+        }
+        .alloc-node:nth-child(2)::after {
+          content: none;
+        }
+        .alloc-node strong {
+          font-size: 15px;
+        }
+        .slots {
+          padding: 0 16px 16px;
+        }
+        .gc-notes {
+          display: block;
+          padding: 16px;
+        }
+        .g1-regions {
+          padding: 14px;
+          gap: 8px;
+        }
+        .g1-region {
+          padding: 8px;
+        }
+        .g1-region .cell {
+          padding: 9px 6px;
+        }
+        .gc-svg {
+          min-height: 0;
+        }
+        .thread-grid {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .sync-bridge {
+          padding: 10px;
+        }
+        .publication {
+          padding: 16px;
+        }
+        .publication .pair {
+          gap: 12px;
+        }
+        th,
+        td {
+          padding: 11px 12px;
+          font-size: 12px;
+        }
+        td:first-child {
+          width: 95px;
+        }
+        .comparison-table {
+          min-width: 610px;
+        }
+        footer {
+          flex-direction: column;
+          gap: 5px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+          scroll-behavior: auto !important;
+        }
+      }
+      @media print {
+        .navigation,
+        .toolbar,
+        .top-links,
+        .step-strip {
+          display: none;
+        }
+        body {
+          background: white;
+        }
+        main {
+          padding: 12px;
+        }
+        [role="tabpanel"][hidden] {
+          display: block !important;
+          break-before: page;
+        }
+        .paper,
+        .explanation {
+          break-inside: avoid;
+        }
+        .pair {
+          grid-template-columns: 1fr 1fr;
+        }
+        a {
+          color: inherit;
+        }
+        .scope {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到学习内容</a>
+    <header class="top">
+      <div class="top-inner">
+        <div>
+          <h1>Go × Java 内存实验室</h1>
+          <p>从一个对象的去向，看懂分配、回收与并发可见性。</p>
+        </div>
+        <div class="top-links">
+          <a href="../../">返回笔记网站</a
+          ><a id="tutorial-link" href="../../notes/433c915164f4522ca661/"
+            >配套教程</a
+          >
+        </div>
+      </div>
+    </header>
+    <nav class="navigation" aria-label="学习主题">
+      <div class="tabs" role="tablist" aria-label="内存实验">
+        <button
+          class="tab"
+          id="tab-map"
+          role="tab"
+          aria-controls="panel-map"
+          aria-selected="true"
+          tabindex="0"
+        >
+          内存全景</button
+        ><button
+          class="tab"
+          id="tab-life"
+          role="tab"
+          aria-controls="panel-life"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          对象的一生</button
+        ><button
+          class="tab"
+          id="tab-alloc"
+          role="tab"
+          aria-controls="panel-alloc"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          分配器</button
+        ><button
+          class="tab"
+          id="tab-gc"
+          role="tab"
+          aria-controls="panel-gc"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          GC 回放</button
+        ><button
+          class="tab"
+          id="tab-hb"
+          role="tab"
+          aria-controls="panel-hb"
+          aria-selected="false"
+          tabindex="-1"
+        >
+          并发内存模型
+        </button>
+      </div>
+    </nav>
+    <main id="main">
+      <section id="panel-map" role="tabpanel" aria-labelledby="tab-map">
+        <div class="section-heading">
+          <div>
+            <h2>堆和栈，先放到各自的位置</h2>
+            <p>
+              点击区域查看对应职责。这里是逻辑结构示意，不表示真实地址、面积比例或连续内存。
+            </p>
+          </div>
+          <span class="scope"
+            >Go 标准工具链 · 源码基线 1.26.0<br />Java SE 25 · HotSpot / G1
+            示例</span
+          >
+        </div>
+        <div class="pair">
+          <article class="paper">
+            <div class="lang-head">
+              <h3 class="go">Go</h3>
+              <span>goroutine 栈 + 共享堆</span>
+            </div>
+            <div class="memory-map">
+              <button
+                class="region"
+                data-region="go-stack"
+                aria-pressed="false"
+              >
+                <strong>goroutine A 的栈</strong
+                ><span>调用栈帧 · 局部值 · 指针</span></button
+              ><button
+                class="region"
+                data-region="go-stack"
+                aria-pressed="false"
+              >
+                <strong>goroutine B 的栈</strong
+                ><span>独立栈 · 可增长与收缩</span>
+              </button>
+              <button
+                class="region shared"
+                data-region="go-heap"
+                aria-pressed="true"
+              >
+                <strong>Go 堆</strong
+                ><span>逃逸对象 · slice 底层数组等动态存储 · GC 管理</span>
+              </button>
+              <button
+                class="region"
+                data-region="go-global"
+                aria-pressed="false"
+              >
+                <strong>全局数据</strong
+                ><span>全局变量中的指针可成为 GC 根</span></button
+              ><button
+                class="region impl"
+                data-region="go-runtime"
+                aria-pressed="false"
+              >
+                <strong>运行时与其它内存</strong
+                ><span>分配器元数据 · 代码 · 系统栈等</span>
+              </button>
+            </div>
+            <p class="region-foot">
+              G 是 goroutine；P 是调度资源；mcache 属于
+              P。它们不是三块同级内存区域。
+            </p>
+          </article>
+          <article class="paper">
+            <div class="lang-head">
+              <h3 class="java">Java</h3>
+              <span>JVMS 逻辑区域 + HotSpot 实现</span>
+            </div>
+            <div class="memory-map">
+              <button
+                class="region"
+                data-region="java-stack"
+                aria-pressed="false"
+              >
+                <strong>线程 A 私有区域</strong
+                ><span>JVM 栈 · PC · 本地方法栈</span></button
+              ><button
+                class="region"
+                data-region="java-stack"
+                aria-pressed="false"
+              >
+                <strong>线程 B 私有区域</strong
+                ><span>栈帧 · 局部变量表 · 操作数栈</span>
+              </button>
+              <button
+                class="region shared"
+                data-region="java-heap"
+                aria-pressed="false"
+              >
+                <strong>Java 堆</strong
+                ><span>对象与数组的规范级分配区域 · G1 可按 Region 管理</span>
+              </button>
+              <button
+                class="region"
+                data-region="java-method"
+                aria-pressed="false"
+              >
+                <strong>方法区（规范）</strong
+                ><span>类结构 · 运行时常量池等</span></button
+              ><button
+                class="region impl"
+                data-region="java-native"
+                aria-pressed="false"
+              >
+                <strong>HotSpot 实现与堆外</strong
+                ><span>Metaspace · Code Cache · Direct Buffer</span>
+              </button>
+            </div>
+            <p class="region-foot">
+              线程示意以平台线程为例。虚拟线程的挂载与栈存储不按“一线程一块固定本地栈”推导。
+            </p>
+          </article>
+        </div>
+        <div class="explanation" aria-live="polite">
+          <div>
+            <h3 id="region-title">Go 堆</h3>
+            <a
+              id="region-source"
+              href="https://go.dev/doc/gc-guide#Where_Go_Values_Live"
+              >查看官方依据</a
+            >
+          </div>
+          <p id="region-detail">
+            编译器无法将对象安全地安排在栈上时，可以将它分配到堆。堆对象按可达性决定是否继续存活，生命周期不绑定某次函数调用。堆是共享的存储资源；一个对象是否被多个
+            goroutine 访问，仍取决于引用如何传递。
+          </p>
+        </div>
+        <div class="boundary">
+          <strong>“内存模型”有两层含义</strong
+          ><span
+            >运行时布局回答“值存在哪里、怎样分配和回收”；Go Memory Model / Java
+            JMM 回答“并发读写之间有什么顺序保证”。后者请看最后一个主题。</span
+          >
+        </div>
+        <div class="reading">
+          <h3>可以类比，也要保留边界</h3>
+          <div class="paper table-wrap">
+            <table class="comparison-table">
+              <thead>
+                <tr>
+                  <th>观察点</th>
+                  <th>Go</th>
+                  <th>Java / HotSpot 示例</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>局部值</td>
+                  <td>struct 可直接作为值；可能在寄存器、栈或堆上</td>
+                  <td>
+                    局部变量可保存基本类型值或对象引用；不能据此判断被引用对象的位置
+                  </td>
+                </tr>
+                <tr>
+                  <td>分配优化</td>
+                  <td>编译期逃逸分析，结合内联等优化</td>
+                  <td>
+                    JIT 逃逸分析可促成标量替换、分配消除；不能一概说“搬到栈上”
+                  </td>
+                </tr>
+                <tr>
+                  <td>快速分配</td>
+                  <td>每 P 的 mcache，管理可分配的 span</td>
+                  <td>TLAB 是 Java 堆内的线程本地分配区；不是线程栈</td>
+                </tr>
+                <tr>
+                  <td>回收示例</td>
+                  <td>并发标记清扫；非分代、非压缩</td>
+                  <td>G1 分代、Region 化；疏散时移动存活对象</td>
+                </tr>
+                <tr>
+                  <td>共享访问</td>
+                  <td>堆分配不提供同步保证</td>
+                  <td>对象在共享堆上不意味着无锁读写安全</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+      <section
+        id="panel-life"
+        role="tabpanel"
+        aria-labelledby="tab-life"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <h2>同一个局部名字，不同的存活时间</h2>
+            <p>切换场景并逐步执行，观察引用、对象与栈帧分别发生什么。</p>
+          </div>
+          <span class="scope"
+            >示意轨迹，不是某次编译结果<br />内联与优化可能消除实际分配</span
+          >
+        </div>
+        <div class="toolbar">
+          <label for="life-scenario">场景</label
+          ><select id="life-scenario">
+            <option value="local">局部使用：只返回计算结果</option>
+            <option value="escape" selected>返回对象：生命周期跨越调用</option>
+            <option value="retain">切片 / 视图：小结果保留大数组</option>
+          </select>
+          <div class="playback">
+            <button id="life-prev">上一步</button
+            ><button class="primary" id="life-play">播放</button
+            ><button id="life-next">下一步</button
+            ><span class="counter" id="life-counter"></span>
+          </div>
+        </div>
+        <div class="pair" id="life-pair"></div>
+        <div class="step-detail" aria-live="polite">
+          <h3 id="life-title"></h3>
+          <p id="life-detail"></p>
+        </div>
+        <div
+          class="step-strip"
+          id="life-steps"
+          aria-label="对象生命周期步骤"
+        ></div>
+        <div class="reading">
+          <h3>为什么 Go 的 &amp;u 可以安全返回？</h3>
+          <p>
+            编译器在分配前分析引用流向。需要跨调用存活的值可以直接安排在堆上；“逃逸”不表示运行中先创建栈对象，再在
+            return
+            时把它搬到堆上。返回指针的调用若被内联，仍可能避免真实堆分配。
+          </p>
+          <details>
+            <summary>Java 的逃逸分析等于栈上分配吗？</summary>
+            <p>
+              不等于。HotSpot
+              可能把对象字段拆成独立值，直接消除对象分配；这叫标量替换。它不等于必须保留一个完整对象再放到栈上。JVMS
+              的抽象对象语义与机器执行后的存储形式需要分开看。
+            </p>
+          </details>
+          <details>
+            <summary>Go 的 new / make 或取地址能决定进堆吗？</summary>
+            <p>
+              不能仅凭语法决定。对象大小、引用流向、内联和编译器版本都会影响结果。使用
+              go build -gcflags="-m=2" . 查看当前工具链的分析；使用 benchmark 的
+              -benchmem 观察实际分配。
+            </p>
+          </details>
+          <p class="source-line">
+            依据：<a href="https://go.dev/doc/faq#stack_or_heap">Go FAQ</a> ·
+            <a
+              href="https://docs.oracle.com/en/java/javase/25/vm/java-hotspot-virtual-machine-performance-enhancements.html"
+              >HotSpot 性能增强 / Escape Analysis</a
+            >
+          </p>
+        </div>
+      </section>
+      <section
+        id="panel-alloc"
+        role="tabpanel"
+        aria-labelledby="tab-alloc"
+        hidden
+      >
+        <div class="section-heading">
+          <div>
+            <h2>把常见分配留在离执行者更近的地方</h2>
+            <p>
+              Go 的缓存分层与 HotSpot 的 TLAB
+              都减少分配竞争，但管理单位和归属不同。
+            </p>
+          </div>
+          <span class="scope"
+            >Go 1.26.0 分配器教学路径<br />所有槽位和容量均为示例</span
+          >
+        </div>
+        <div class="toolbar">
+          <label for="alloc-scenario">Go 分配路径</label
+          ><select id="alloc-scenario">
+            <option value="miss">48 B 小对象：逐级缓存未命中</option>
+            <option value="hit">48 B 小对象：mcache 命中</option>
+            <option value="large">40 KiB 大对象：跳过小对象缓存</option>
+            <option value="tiny">8 B 无指针对象：tiny 路径</option>
+          </select>
+          <div class="playback">
+            <button id="alloc-prev">上一步</button
+            ><button class="primary" id="alloc-next">下一步</button
+            ><span id="alloc-counter" class="counter"></span>
+          </div>
+        </div>
+        <div class="paper">
+          <div class="allocator" id="allocator"></div>
+          <div class="slots" id="alloc-slots"></div>
+        </div>
+        <div class="step-detail" aria-live="polite">
+          <h3 id="alloc-title"></h3>
+          <p id="alloc-detail"></p>
+        </div>
+        <div class="step-strip" id="alloc-steps" aria-label="分配步骤"></div>
+        <div class="reading">
+          <h3>Java 的快速路径：TLAB</h3>
+          <div class="paper" style="padding: 20px">
+            <div class="thread-grid">
+              <div class="thread">
+                <h3>线程 A 的 TLAB</h3>
+                <pre>
+top → 空闲位置
+new User → 推进 top</pre>
+              </div>
+              <div class="sync-bridge">
+                两块 TLAB 都在<br /><strong>Java 堆</strong>中
+              </div>
+              <div class="thread">
+                <h3>线程 B 的 TLAB</h3>
+                <pre>
+top → 空闲位置
+new Order → 推进 top</pre>
+              </div>
+            </div>
+            <p class="small muted" style="margin-top: 14px">
+              TLAB 用尽需要补充或进入其它分配路径。图中是 HotSpot
+              的常见小对象分配示例，不表示所有对象都必须经过 TLAB。
+            </p>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>问题</th>
+                  <th>mcache</th>
+                  <th>TLAB</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>归谁使用</td>
+                  <td>每个 P；G 不固定绑定某个 P</td>
+                  <td>HotSpot 的线程本地分配资源</td>
+                </tr>
+                <tr>
+                  <td>管理什么</td>
+                  <td>按 size class / 扫描属性区分的 span 缓存</td>
+                  <td>堆内的一段分配空间，常见快速路径推进指针</td>
+                </tr>
+                <tr>
+                  <td>不能推导什么</td>
+                  <td>不能说每个 goroutine 都有一个私有堆</td>
+                  <td>不能说 TLAB 中的对象处在线程栈上，或只能由该线程访问</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="source-line">
+            依据：<a
+              href="https://github.com/golang/go/blob/go1.26.0/src/runtime/malloc.go"
+              >runtime/malloc.go</a
+            >
+            ·
+            <a
+              href="https://github.com/golang/go/blob/go1.26.0/src/runtime/mcache.go"
+              >runtime/mcache.go</a
+            >
+            ·
+            <a
+              href="https://github.com/openjdk/jdk/blob/jdk-25-ga/src/hotspot/share/gc/shared/threadLocalAllocBuffer.hpp"
+              >HotSpot threadLocalAllocBuffer.hpp</a
+            >
+          </p>
+        </div>
+      </section>
+      <section id="panel-gc" role="tabpanel" aria-labelledby="tab-gc" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>可达性决定存活，回收策略决定空间怎样复用</h2>
+            <p>Go 观察标记与清扫；G1 观察存活对象在 Region 之间的疏散。</p>
+          </div>
+          <span class="scope"
+            >停顿标记表示阶段性质，不表示时长<br />回放使用静态示例对象关系</span
+          >
+        </div>
+        <div class="toolbar">
+          <label for="gc-kind">回收器</label
+          ><select id="gc-kind">
+            <option value="go">Go：并发标记清扫</option>
+            <option value="g1">Java G1：一次示例回收序列</option>
+          </select>
+          <div class="playback">
+            <button id="gc-prev">上一步</button
+            ><button class="primary" id="gc-play">播放</button
+            ><button id="gc-next">下一步</button
+            ><span id="gc-counter" class="counter"></span>
+          </div>
+        </div>
+        <div class="gc-layout">
+          <div class="paper">
+            <div class="diagram-head">
+              <h3 id="gc-stage"></h3>
+              <span class="status" id="gc-status"></span>
+            </div>
+            <div id="gc-canvas"></div>
+          </div>
+          <aside class="paper gc-notes" aria-live="polite">
+            <h3 id="gc-title"></h3>
+            <p id="gc-detail"></p>
+            <p id="gc-caution"></p>
+            <div class="phase-source">
+              <a
+                id="gc-source"
+                href="https://github.com/golang/go/blob/go1.26.0/src/runtime/mgc.go"
+                >查看阶段依据</a
+              >
+            </div>
+          </aside>
+        </div>
+        <div class="step-strip" id="gc-steps" aria-label="GC 阶段"></div>
+        <div class="reading">
+          <h3>三件不能混为一谈的事</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>动作</th>
+                  <th>含义</th>
+                  <th>图里如何观察</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>对象回收</td>
+                  <td>不再需要的对象所占空间可被复用</td>
+                  <td>Go 中 C / D 变为空闲槽；G1 中源 Region 腾空</td>
+                </tr>
+                <tr>
+                  <td>对象移动</td>
+                  <td>存活对象复制到新位置，并更新引用</td>
+                  <td>Go 示例 A / B 原位保留；G1 中 A / B 出现在 Survivor</td>
+                </tr>
+                <tr>
+                  <td>内存归还 OS</td>
+                  <td>运行时或 JVM 将可释放的页交还操作系统</td>
+                  <td>
+                    不是每个空闲槽出现时立即发生；任务管理器 / RSS
+                    不一定马上下降
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <details>
+            <summary>Go 完全没有 STW 吗？</summary>
+            <p>
+              有。启动标记和终止标记等阶段需要停顿协调。并发标记期间，扫描某个
+              goroutine 的栈也需要暂停该
+              goroutine；分配方还可能承担标记辅助工作。不能把“并发
+              GC”理解为“业务没有任何 GC 成本”。
+            </p>
+          </details>
+          <details>
+            <summary>Go 的写屏障与 Java volatile 是同一种屏障吗？</summary>
+            <p>
+              不是。GC
+              写屏障服务于对象图在并发标记时的正确追踪；并发内存模型中的同步操作服务于程序读写的顺序与可见性。GC
+              写屏障不会让业务数据竞争变安全。
+            </p>
+          </details>
+          <details>
+            <summary>G1 必须依次经历 Young → Mixed → Full GC 吗？</summary>
+            <p>
+              不必须。Mixed 依赖一次标记后的候选与回收策略；Full GC
+              是某些失败或显式触发等情况下的后备路径，不是每次周期的固定末尾。这里回放选取了进入标记并发生
+              Mixed 的代表性序列。
+            </p>
+          </details>
+        </div>
+      </section>
+      <section id="panel-hb" role="tabpanel" aria-labelledby="tab-hb" hidden>
+        <div class="section-heading">
+          <div>
+            <h2>对象已经在堆上，读线程就一定看得到更新吗？</h2>
+            <p>
+              不能据此保证。切换发布方式，观察两个执行者之间有没有建立
+              happens-before。
+            </p>
+          </div>
+          <span class="scope"
+            >抽象顺序保证，不模拟 CPU 缓存<br />“无保证”不等于每次读取旧值</span
+          >
+        </div>
+        <div class="toolbar">
+          <label for="hb-mode">发布方式</label
+          ><select id="hb-mode">
+            <option value="unsafe">普通标志位：缺少同步</option>
+            <option value="safe">同步发布：Go channel / Java volatile</option>
+          </select>
+        </div>
+        <div class="paper publication">
+          <div class="thread-grid">
+            <div class="thread">
+              <h3>写入方</h3>
+              <div class="event"><code>data = 42</code></div>
+              <div class="event" id="hb-publish"></div>
+            </div>
+            <div class="sync-bridge" id="hb-bridge"></div>
+            <div class="thread">
+              <h3>读取方</h3>
+              <div class="event" id="hb-acquire"></div>
+              <div class="event"><code>read(data)</code></div>
+            </div>
+          </div>
+          <div class="result" id="hb-result" role="status"></div>
+          <div class="hb-chain" id="hb-chain"></div>
+          <div class="pair">
+            <div>
+              <h3 class="go">Go</h3>
+              <pre id="hb-go"></pre>
+            </div>
+            <div>
+              <h3 class="java">Java</h3>
+              <pre id="hb-java"></pre>
+            </div>
+          </div>
+        </div>
+        <div class="reading">
+          <h3>建立关系的是同步操作</h3>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>关系</th>
+                  <th>Go</th>
+                  <th>Java JMM</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>锁</td>
+                  <td>相应 Mutex.Unlock 与后续 Lock 返回之间建立顺序</td>
+                  <td>同一监视器的 unlock happens-before 后续 lock</td>
+                </tr>
+                <tr>
+                  <td>发布</td>
+                  <td>
+                    channel 发送与对应接收完成；本例使用 close
+                    与观察到关闭的接收
+                  </td>
+                  <td>对 volatile 变量的写 happens-before 后续对它的读</td>
+                </tr>
+                <tr>
+                  <td>复合操作</td>
+                  <td>共享 counter++ 需要正确同步或原子操作</td>
+                  <td>
+                    volatile counter++ 仍然是读、改、写组合，不保证整体原子性
+                  </td>
+                </tr>
+                <tr>
+                  <td>数据竞争</td>
+                  <td>
+                    使用 go test -race 查找；没有报告不等于证明所有执行安全
+                  </td>
+                  <td>依据 JMM 推理，必要时用锁、原子类或并发容器建立约束</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="source-line">
+            依据：<a href="https://go.dev/ref/mem#Channel_communication"
+              >Go Memory Model：Channel communication</a
+            >
+            ·
+            <a
+              href="https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html#jls-17.4.5"
+              >JLS §17.4.5：Happens-before</a
+            >
+          </p>
+        </div>
+      </section>
+      <section class="references" id="sources">
+        <h3>继续阅读与官方出处</h3>
+        <ul>
+          <li>
+            <a id="bottom-tutorial" href="../../notes/433c915164f4522ca661/"
+              >配套长文：Go 堆内存与 Java 内存对照</a
+            >，包含可运行示例、诊断命令与常见误区。
+          </li>
+          <li>
+            <a href="https://go.dev/doc/gc-guide">Go GC Guide</a>；<a
+              href="https://github.com/golang/go/tree/go1.26.0/src/runtime"
+              >Go 1.26.0 runtime 源码</a
+            >。分配器与 GC 图针对标准工具链，具体实现可随版本变化。
+          </li>
+          <li>
+            <a
+              href="https://docs.oracle.com/javase/specs/jvms/se25/html/jvms-2.html"
+              >JVMS §2：运行时数据区</a
+            >；<a
+              href="https://docs.oracle.com/en/java/javase/25/gctuning/garbage-first-g1-garbage-collector1.html"
+              >JDK 25 G1 指南</a
+            >。G1 不能代表所有 JVM 回收器。
+          </li>
+          <li>
+            <a href="https://go.dev/ref/mem">Go Memory Model</a>；<a
+              href="https://docs.oracle.com/javase/specs/jls/se25/html/jls-17.html"
+              >JLS §17：Threads and Locks</a
+            >。它们讨论同步语义，不是地址布局。
+          </li>
+        </ul>
+      </section>
+      <footer>
+        <span>景旭的编程笔记 · Go / Java 对照学习</span
+        ><span>教学示意 · 不读取进程数据 · 不表示性能测量结果</span>
+      </footer>
+    </main>
+    <noscript
+      ><p style="padding: 24px">
+        交互演示需要 JavaScript。请使用页面中的配套教程链接阅读完整文字说明。
+      </p></noscript
+    >
+    <script>
+      (() => {
+        "use strict";
+        const $ = (id) => document.getElementById(id);
+        const esc = (value) =>
+          String(value).replace(
+            /[&<>"']/g,
+            (c) =>
+              ({
+                "&": "&amp;",
+                "<": "&lt;",
+                ">": "&gt;",
+                '"': "&quot;",
+                "'": "&#39;",
+              })[c],
+          );
+        const src = {
+          guide: "https://go.dev/doc/gc-guide",
+          malloc:
+            "https://github.com/golang/go/blob/go1.26.0/src/runtime/malloc.go",
+          mgc: "https://github.com/golang/go/blob/go1.26.0/src/runtime/mgc.go",
+          jvms: "https://docs.oracle.com/javase/specs/jvms/se25/html/jvms-2.html",
+          g1: "https://docs.oracle.com/en/java/javase/25/gctuning/garbage-first-g1-garbage-collector1.html",
+        };
+        const regions = {
+          "go-stack": [
+            "goroutine 的栈",
+            "每个 goroutine 有自己的调用栈。局部值可以直接存在栈中，栈里的指针也可以指向堆。运行时能够调整 goroutine 栈的大小；栈移动和堆对象是否移动是两回事。",
+            src.guide,
+          ],
+          "go-heap": [
+            "Go 堆",
+            "编译器无法将对象安全地安排在栈上时，可以将它分配到堆。堆对象按可达性决定是否继续存活，生命周期不绑定某次函数调用。堆是共享的存储资源；一个对象是否被多个 goroutine 访问，仍取决于引用如何传递。",
+            src.guide,
+          ],
+          "go-global": [
+            "全局数据与 GC 根",
+            "全局变量不意味着该变量本身一定是一次堆分配。全局变量里的指针可以让堆对象保持可达，因此一个全局 map 或缓存可能长时间保留整个对象图。",
+            src.mgc,
+          ],
+          "go-runtime": [
+            "运行时与其它内存",
+            "Go 进程除了对象堆，还包含 goroutine 栈、系统栈、代码、运行时元数据、映射等。mspan 是管理元数据，不能简单把它画成某个用户对象内部字段；堆大小也不等于进程 RSS。",
+            src.malloc,
+          ],
+          "java-stack": [
+            "线程私有运行时区域",
+            "JVMS 定义每线程的 PC、JVM 栈和本地方法栈等区域。栈帧包含局部变量表、操作数栈等；局部变量里保存对象引用，不意味着对象本体也在栈中。虚拟线程需要结合 JVM 的具体实现另行分析。",
+            src.jvms + "#jvms-2.5",
+          ],
+          "java-heap": [
+            "Java 堆",
+            "JVMS 将堆定义为所有 JVM 线程共享、为类实例与数组分配内存的区域。HotSpot 的优化可能消除实际分配。G1 的 Eden、Survivor、Old 是 Region 的角色，不是所有 Java GC 都必须采用的固定布局。",
+            src.jvms + "#jvms-2.5.3",
+          ],
+          "java-method": [
+            "方法区：规范层的区域",
+            "JVMS 方法区保存每个类的结构，例如运行时常量池、字段和方法数据等。它是逻辑定义；规范没有要求它必须采用某种物理布局。不要把“方法区”直接等同于一块叫 Metaspace 的完整物理空间。",
+            src.jvms + "#jvms-2.5.4",
+          ],
+          "java-native": [
+            "HotSpot 与堆外：实现层",
+            "HotSpot 用 Metaspace 存放类元数据；Code Cache 保存编译后的代码；Direct Buffer 的数据存储可能在 Java 堆外。这些不能全部合并成 JVMS 的“方法区”。Direct Buffer 的包装对象仍可以在 Java 堆中。",
+            "https://docs.oracle.com/en/java/javase/25/vm/java-hotspot-virtual-machine-performance-enhancements.html",
+          ],
+        };
+        document.querySelectorAll("[data-region]").forEach((button) =>
+          button.addEventListener("click", () => {
+            document
+              .querySelectorAll("[data-region]")
+              .forEach((item) =>
+                item.setAttribute("aria-pressed", String(item === button)),
+              );
+            const item = regions[button.dataset.region];
+            $("region-title").textContent = item[0];
+            $("region-detail").textContent = item[1];
+            $("region-source").href = item[2];
+          }),
+        );
+        const timers = { life: null, gc: null };
+        function stop(kind) {
+          if (timers[kind]) clearInterval(timers[kind]);
+          timers[kind] = null;
+          $(kind + "-play").textContent = "播放";
+        }
+        const tabs = Array.from(document.querySelectorAll("[role=tab]"));
+        function activate(tab) {
+          stop("life");
+          stop("gc");
+          tabs.forEach((item) => {
+            const active = item === tab;
+            item.setAttribute("aria-selected", String(active));
+            item.tabIndex = active ? 0 : -1;
+            $(item.getAttribute("aria-controls")).hidden = !active;
+          });
+        }
+        tabs.forEach((tab, index) => {
+          tab.addEventListener("click", () => activate(tab));
+          tab.addEventListener("keydown", (event) => {
+            let next;
+            if (event.key === "ArrowRight") next = (index + 1) % tabs.length;
+            else if (event.key === "ArrowLeft")
+              next = (index + tabs.length - 1) % tabs.length;
+            else if (event.key === "Home") next = 0;
+            else if (event.key === "End") next = tabs.length - 1;
+            else return;
+            event.preventDefault();
+            activate(tabs[next]);
+            tabs[next].focus();
+          });
+        });
+        function stepButtons(container, names, current, callback) {
+          const focused = document.activeElement;
+          const focusedStep =
+            focused && focused.parentElement === container
+              ? focused.dataset.step
+              : null;
+          container.replaceChildren(
+            ...names.map((name, index) => {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.textContent = index + 1 + " · " + name;
+              button.dataset.step = String(index);
+              if (index === current)
+                button.setAttribute("aria-current", "step");
+              button.addEventListener("click", () => callback(index));
+              return button;
+            }),
+          );
+          if (focusedStep !== null) {
+            const replacement = container.querySelector(
+              '[data-step="' + focusedStep + '"]',
+            );
+            if (replacement) replacement.focus({ preventScroll: true });
+          }
+        }
+        const cell = (text, state = "") =>
+          '<div class="cell ' + state + '">' + esc(text) + "</div>";
+        const lifeData = {
+          local: {
+            names: ["进入函数", "局部计算", "返回结果"],
+            titles: [
+              "创建仅在局部使用的值",
+              "读取字段并完成计算",
+              "离开调用，结果独立存在",
+            ],
+            details: [
+              "Go 的 User 值不需要跨越调用存活，可能在寄存器或栈中。Java 示例仍按对象语义理解，实际分配可能被 JIT 消除。",
+              "Go 直接读取值字段。Java 若满足优化条件，可标量替换，只保留所需的字段值。两者都不能仅凭源代码给出固定机器布局。",
+              "调用者得到整数 42，不再需要局部 User。本图的 Go 局部存储随调用结束失效；Java 若曾发生堆分配，该对象在失去可达引用后才进入可回收范围。",
+            ],
+            go: "func calc() int {\n    u := User{Age: 21}\n    return u.Age * 2\n}",
+            java: "int calc() {\n    User u = new User(21);\n    return u.age * 2;\n}",
+          },
+          escape: {
+            names: ["创建对象", "返回引用", "调用结束", "移除引用", "GC 回收"],
+            titles: [
+              "先确定存活需求，再安排存储",
+              "把引用交给调用者",
+              "栈帧结束，堆对象继续存活",
+              "最后一个有效引用被移除",
+              "后续 GC 使空间可复用",
+            ],
+            details: [
+              "本图展示“对象实际在堆上分配”的一条可行轨迹。Go 对需要跨调用存活的值可直接做堆分配；不是在 return 时把栈对象搬过去。",
+              "Go 返回 *User；Java 返回 User 引用。这里传回的是访问对象的引用，不是复制一份完整的 User 对象。",
+              "被调用函数的栈帧不再有效，调用者仍然引用 User，所以对象继续存活。对象生命周期与变量名的作用域不同。",
+              "假设没有其它根或对象引用它，User 变得不可达。把某个变量设为 nil / null 不保证这是最后一个引用，也不强制立即 GC。",
+              "回收后槽位可以供后续分配使用。空间可能保留在运行时 / JVM 内，进程占用不会因此必然立即下降。",
+            ],
+            go: 'func newUser() *User {\n    u := User{Name: "小明"}\n    return &u\n}\np := newUser()',
+            java: 'User newUser() {\n    User u = new User("小明");\n    return u;\n}\nUser p = newUser();',
+          },
+          retain: {
+            names: [
+              "分配大数组",
+              "取得小视图",
+              "原引用结束",
+              "复制小结果",
+              "旧数组可回收",
+            ],
+            titles: [
+              "准备一块 10 MiB 底层数组",
+              "视图只覆盖其中 10 字节",
+              "小视图仍保留大存储",
+              "显式复制到独立小数组",
+              "移除视图后，旧数组才可能不可达",
+            ],
+            details: [
+              "这里假设数组实际在堆上分配。Go slice 与 Java ByteBuffer 都可以用一个小的描述结构引用更大的存储。",
+              "Go 的 buf[:10] 共享底层数组。Java 的 ByteBuffer.wrap(buf, 0, 10) 也保留 buf；两者 API 语义不完全相同，这里只比较存储保留。",
+              "函数调用结束或原变量失效，并不解除仍被视图持有的引用。10 字节的逻辑结果可能让 10 MiB 数组一直存活。",
+              "Go 可 append([]byte(nil), view...)；Java 可复制视图中的字节到新数组。复制发生时，新旧数组会暂时同时存在。",
+              "图中假设旧视图和其它旧引用都已失效。旧大数组随后可由 GC 回收，小数组继续被返回值引用。",
+            ],
+            go: "buf := make([]byte, 10<<20)\nview := buf[:10]\n// 独立保存需要复制\nsmall := append([]byte(nil), view...)",
+            java: "byte[] buf = new byte[10 << 20];\nByteBuffer view = ByteBuffer.wrap(buf, 0, 10);\n// 独立保存需要复制\nbyte[] small = new byte[view.remaining()];\nview.get(small);",
+          },
+        };
+        let lifeKind = "escape",
+          lifeStep = 0;
+        function lifeState(language) {
+          if (lifeKind === "escape")
+            return {
+              stack:
+                lifeStep < 2
+                  ? cell("newUser 帧：u → User", "live")
+                  : cell("newUser 栈帧已结束", "empty"),
+              caller:
+                lifeStep >= 1 && lifeStep < 3
+                  ? cell("调用者：p → User", "live")
+                  : cell(
+                      lifeStep >= 3
+                        ? "调用者：p = " + (language === "Go" ? "nil" : "null")
+                        : "调用者：等待返回",
+                      "empty",
+                    ),
+              heap: cell(
+                lifeStep === 4 ? "空闲槽位" : "User { Name: 小明 }",
+                lifeStep === 4 ? "free" : lifeStep === 3 ? "dead" : "live",
+              ),
+              arrow: lifeStep < 3 ? "→" : "",
+              note:
+                lifeStep === 2
+                  ? "栈帧结束 ≠ 堆对象销毁"
+                  : lifeStep === 3
+                    ? "不可达 ≠ 已立即回收"
+                    : lifeStep === 4
+                      ? "可复用 ≠ 已归还操作系统"
+                      : "对象本体与引用分别存在",
+            };
+          if (lifeKind === "local")
+            return {
+              stack: cell(
+                lifeStep === 2
+                  ? "局部调用已结束"
+                  : language === "Go"
+                    ? "局部值 u：Age = 21"
+                    : "局部引用 u → User",
+                lifeStep === 2 ? "empty" : "live",
+              ),
+              caller: cell(
+                lifeStep === 2
+                  ? "返回值：42"
+                  : "计算结果：" + (lifeStep === 1 ? "42" : "等待"),
+                "live",
+              ),
+              heap:
+                language === "Go"
+                  ? cell("此例无需堆对象", "empty")
+                  : cell(
+                      lifeStep === 2
+                        ? "若分配过，现已不可达"
+                        : "User（抽象对象语义）",
+                      lifeStep === 2 ? "dead" : "live",
+                    ),
+              arrow: language === "Go" ? "" : "→",
+              note:
+                language === "Go"
+                  ? "局部值还可能直接留在寄存器"
+                  : "实际 JIT 可能消除对象分配；图示未声称完整对象上栈",
+            };
+          return {
+            stack: cell(
+              lifeStep >= 2 ? "创建方调用已结束" : "创建方：buf → 大数组",
+              lifeStep >= 2 ? "empty" : "live",
+            ),
+            caller: cell(
+              lifeStep === 0
+                ? "等待视图"
+                : lifeStep < 3
+                  ? "view → 大数组的前 10 B"
+                  : lifeStep === 3
+                    ? "view 与 small 同时存在"
+                    : "small → 独立 10 B",
+              "live",
+            ),
+            heap:
+              cell(
+                lifeStep === 4 ? "10 MiB：等待后续回收" : "10 MiB 底层数组",
+                lifeStep === 4 ? "dead" : "live",
+              ) + (lifeStep >= 3 ? cell("独立 10 B 小数组", "live") : ""),
+            arrow: "→",
+            note:
+              lifeStep === 3
+                ? "复制瞬间新旧存储同时存在"
+                : lifeStep === 4
+                  ? "需要旧视图和其它引用都失效"
+                  : "视图长度不等于被保留的数组大小",
+          };
+        }
+        function renderLife() {
+          const data = lifeData[lifeKind];
+          $("life-pair").innerHTML = ["Go", "Java"]
+            .map((language) => {
+              const s = lifeState(language);
+              return (
+                '<article class="paper"><div class="lang-head"><h3 class="' +
+                language.toLowerCase() +
+                '">' +
+                language +
+                '</h3><span>逻辑对象与引用</span></div><div class="code-pane"><pre><code>' +
+                esc(data[language.toLowerCase()]) +
+                '</code></pre></div><div class="life-diagram"><div class="memory-zone"><div class="zone-title">调用 / 局部状态</div>' +
+                s.stack +
+                s.caller +
+                '</div><div class="arrow" aria-hidden="true">' +
+                s.arrow +
+                '</div><div class="memory-zone"><div class="zone-title">堆存储</div>' +
+                s.heap +
+                '</div></div><p class="lane-note">' +
+                s.note +
+                "</p></article>"
+              );
+            })
+            .join("");
+          $("life-title").textContent = data.titles[lifeStep];
+          $("life-detail").textContent = data.details[lifeStep];
+          $("life-counter").textContent =
+            lifeStep + 1 + " / " + data.names.length;
+          $("life-prev").disabled = lifeStep === 0;
+          $("life-next").disabled = lifeStep === data.names.length - 1;
+          stepButtons($("life-steps"), data.names, lifeStep, (index) => {
+            stop("life");
+            lifeStep = index;
+            renderLife();
+          });
+        }
+        $("life-scenario").addEventListener("change", (event) => {
+          stop("life");
+          lifeKind = event.target.value;
+          lifeStep = 0;
+          renderLife();
+        });
+        $("life-prev").addEventListener("click", () => {
+          stop("life");
+          lifeStep = Math.max(0, lifeStep - 1);
+          renderLife();
+        });
+        $("life-next").addEventListener("click", () => {
+          stop("life");
+          lifeStep = Math.min(
+            lifeData[lifeKind].names.length - 1,
+            lifeStep + 1,
+          );
+          renderLife();
+        });
+        function play(kind, atEnd, reset, advance) {
+          if (timers[kind]) {
+            stop(kind);
+            return;
+          }
+          if (atEnd()) reset();
+          $(kind + "-play").textContent = "暂停";
+          timers[kind] = setInterval(() => {
+            advance();
+            if (atEnd()) stop(kind);
+          }, 2100);
+        }
+        $("life-play").addEventListener("click", () =>
+          play(
+            "life",
+            () => lifeStep === lifeData[lifeKind].names.length - 1,
+            () => {
+              lifeStep = 0;
+              renderLife();
+            },
+            () => {
+              lifeStep++;
+              renderLife();
+            },
+          ),
+        );
+        const allocData = {
+          miss: [
+            [
+              "检查 mcache",
+              0,
+              "48 B 示例归入对应 size class。当前 P 的 mcache 中没有可用槽位，因此不能在此完成分配。",
+            ],
+            [
+              "向 mcentral 补充",
+              1,
+              "尝试获取同规格且有空闲位置的 span。本场景假设 mcentral 也没有可用 span，继续向全局堆申请页。",
+            ],
+            [
+              "从 mheap 取页",
+              2,
+              "mheap 按运行时页组织空间。如果它有可用页，可直接建立 span；本场景进一步假设可用页不足，需要扩展。",
+            ],
+            [
+              "必要时向 OS 扩展",
+              3,
+              "运行时向操作系统取得更多内存。实际涉及虚拟地址与物理页管理，绝不是每分配一个小对象都做一次系统调用。",
+            ],
+            [
+              "补充后完成分配",
+              0,
+              "新 span 按需要登记并交给本地缓存，从其中空闲槽位分配对象。多次小对象分配分摊一次补充成本。",
+            ],
+          ],
+          hit: [
+            [
+              "检查 mcache",
+              0,
+              "当前 P 的相应 span 已有空闲槽位。常见分配快速路径可以避免全局加锁。",
+            ],
+            [
+              "直接取得槽位",
+              0,
+              "对象占据一个相应规格的槽位。没有必要依次访问 mcentral、mheap 和操作系统。",
+            ],
+          ],
+          large: [
+            [
+              "识别为大对象",
+              2,
+              "40 KiB 超过该源码基线的小对象上限 32 KiB，跳过小对象的 mcache / mcentral 路径。",
+            ],
+            [
+              "按页分配",
+              2,
+              "直接从 mheap 获取足够的页，并按需要清零。若页不足，仍可能向操作系统扩展。图中 8 KiB 是 Go 运行时页，不是对 OS 页大小的声明。",
+            ],
+          ],
+          tiny: [
+            [
+              "识别 tiny 条件",
+              0,
+              "8 B 且不含指针，满足本例 tiny 分配条件。tiny 路径不是所有小于 16 B 对象的统一路径。",
+            ],
+            [
+              "装入 tiny block",
+              0,
+              "多个微小无指针分配可以共享一个 16 B tiny block，并遵守对齐。其底层 block 仍由小对象分配体系供应；GC 不单独释放其中每一个子对象。",
+            ],
+          ],
+        };
+        let allocKind = "miss",
+          allocStep = 0;
+        function renderAlloc() {
+          const data = allocData[allocKind],
+            item = data[allocStep];
+          $("allocator").innerHTML = [
+            ["mcache", "当前 P 的 span 缓存"],
+            ["mcentral", "按规格汇集 span"],
+            ["mheap", "全局按页管理"],
+            ["操作系统", "必要时扩展内存"],
+          ]
+            .map(
+              (node, index) =>
+                '<div class="alloc-node ' +
+                (index === item[1]
+                  ? "active"
+                  : allocKind === "large" && index < 2
+                    ? "skipped"
+                    : allocKind === "miss" && index < item[1]
+                      ? "passed"
+                      : "") +
+                '"><strong>' +
+                node[0] +
+                "</strong><p>" +
+                node[1] +
+                "</p></div>",
+            )
+            .join("");
+          const done = allocStep === data.length - 1;
+          $("alloc-slots").innerHTML =
+            Array.from(
+              {
+                length:
+                  allocKind === "tiny" ? 2 : allocKind === "large" ? 5 : 8,
+              },
+              (_, i) =>
+                '<span class="slot ' +
+                (done && (allocKind === "large" || i === 0) ? "used" : "") +
+                '">' +
+                (allocKind === "tiny"
+                  ? "8 B"
+                  : allocKind === "large"
+                    ? "8 KiB"
+                    : "48 B") +
+                "</span>",
+            ).join("") +
+            '<span class="slot-desc">' +
+            (allocKind === "tiny"
+              ? "示例：16 B tiny block 的两个 8 B 区间；不表示两个独立回收单元。"
+              : allocKind === "large"
+                ? "40 KiB 的五个 8 KiB 运行时页示意，非实际地址布局。"
+                : "固定规格槽位示意；展示数量不代表一个真实 span 的容量。") +
+            "</span>";
+          $("alloc-title").textContent = item[0];
+          $("alloc-detail").textContent = item[2];
+          $("alloc-prev").disabled = allocStep === 0;
+          $("alloc-next").disabled = done;
+          $("alloc-counter").textContent = allocStep + 1 + " / " + data.length;
+          stepButtons(
+            $("alloc-steps"),
+            data.map((row) => row[0]),
+            allocStep,
+            (index) => {
+              allocStep = index;
+              renderAlloc();
+            },
+          );
+        }
+        $("alloc-scenario").addEventListener("change", (event) => {
+          allocKind = event.target.value;
+          allocStep = 0;
+          renderAlloc();
+        });
+        $("alloc-prev").addEventListener("click", () => {
+          allocStep = Math.max(0, allocStep - 1);
+          renderAlloc();
+        });
+        $("alloc-next").addEventListener("click", () => {
+          allocStep = Math.min(allocData[allocKind].length - 1, allocStep + 1);
+          renderAlloc();
+        });
+        const goGc = [
+          [
+            "对象图",
+            "业务运行",
+            false,
+            "根引用 A，A 引用 B；C 与 D 互相引用，却没有来自根的路径。环形引用并不自动意味着存活。",
+            "白色：尚未标记；灰色：已发现待扫描；蓝色：已扫描。颜色是算法状态，不是对象年龄。",
+          ],
+          [
+            "启动标记",
+            "STW",
+            true,
+            "完成清扫终止等准备，开启写屏障与标记工作，然后恢复业务执行。",
+            "此处是全局停顿协调；不是在整个标记阶段一直暂停业务。",
+          ],
+          [
+            "发现根引用",
+            "并发标记",
+            false,
+            "从根找到 A，A 进入待扫描集合。还要扫描各 goroutine 栈、全局数据等根来源。",
+            "扫描某个 goroutine 的栈时需要暂停该 goroutine；不等于整个标记过程都 STW。",
+          ],
+          [
+            "追踪 A → B",
+            "并发标记",
+            false,
+            "扫描 A 后发现 B，A 已扫描，B 等待扫描。C / D 仍没有根路径。",
+            "真实程序会修改对象图，写屏障参与保证并发追踪正确。本回放使用固定对象图解释基本可达性。",
+          ],
+          [
+            "完成追踪",
+            "并发标记",
+            false,
+            "B 也扫描完成。A / B 保留原位置；C / D 仍未被标记。",
+            "Go 该源码基线的堆 GC 非分代、非压缩。goroutine 栈仍可能被复制调整。",
+          ],
+          [
+            "终止标记",
+            "STW",
+            true,
+            "完成标记终止的协调与收尾，随后切换到清扫状态。",
+            "不能因为看到“并发标记清扫”就认为没有停顿，也不能把 GC 写屏障当作业务同步。",
+          ],
+          [
+            "清扫并复用",
+            "并发清扫",
+            false,
+            "C / D 的槽位变为可分配空间，A / B 仍在原位。清扫按 span 进行，可由后台和分配路径推动。",
+            "GC 不要求立刻把每个空闲槽对应的页归还 OS；仍可达的数据不会因希望节约内存而被回收。",
+          ],
+        ];
+        const g1Gc = [
+          [
+            "初始 Region",
+            "业务运行",
+            false,
+            "根可达 Eden 中的 A，以及 Old 中的 C；A 引用 B。x / X 是不可达对象。",
+            "Region 的角色是动态的；图中区域数量、对象大小和代龄都是教学示例。",
+          ],
+          [
+            "Young 疏散",
+            "STW",
+            true,
+            "从 GC Roots 与记忆集等信息出发，复制年轻代存活的 A / B 到 Survivor，并更新引用。Eden 的源 Region 可整体复用。",
+            "本图按 Survivor 容量足够处理；晋升 Old 由年龄、容量与策略等因素决定，不是“经历一次 Young 就晋升”。",
+          ],
+          [
+            "并发启动",
+            "STW",
+            true,
+            "在需要启动全堆标记时，Concurrent Start 随一次年轻代暂停完成初始标记准备。本图省略这次年轻代的重复细节。",
+            "并非每次 Young GC 都启动全堆并发标记。随后还有并发根 Region 扫描等工作。",
+          ],
+          [
+            "并发标记",
+            "与业务并发",
+            false,
+            "追踪存活性，得到 Old 中 C 存活、X 不可达的信息，为后续候选选择提供依据。",
+            "并发标记不等于此刻已经把 Old 中全部垃圾对象空间释放。",
+          ],
+          [
+            "Remark",
+            "STW",
+            true,
+            "完成标记相关收尾与全局存活性处理。",
+            "G1 使用的并发标记与屏障机制不能直接替换为 Go 的实现细节。",
+          ],
+          [
+            "清理与候选",
+            "部分工作有暂停",
+            true,
+            "清理阶段处理统计并确定适合的回收候选；实际包含暂停与并发工作。本例保留一个含存活 C 和垃圾 X 的 Old 候选 Region。",
+            "完全空的 Region 也可能在清理时回收；候选是否进入 Mixed 取决于成本与收益策略。",
+          ],
+          [
+            "Mixed 疏散",
+            "STW",
+            true,
+            "一次 Mixed 暂停回收年轻代与选中的 Old Region。本图聚焦 Old：将存活 C 复制到另一个 Old Region，源 Region 中 X 被一起淘汰。",
+            "Mixed 不会在一次暂停中无条件回收全部 Old；真实过程中年轻代对象也可能再次移动，图中未展开。",
+          ],
+          [
+            "返回业务",
+            "业务运行",
+            false,
+            "源 Region 重新成为可用空间；存活对象仍被有效引用。等待后续按分配压力和策略触发的回收。",
+            "Full GC 没有被排在这个序列末尾：它是特定条件下的后备路径，不是正常周期必经步骤。",
+          ],
+        ];
+        let gcKind = "go",
+          gcStep = 0;
+        function svgNode(id, x, y, label, state) {
+          return (
+            '<g class="node ' +
+            state +
+            '" transform="translate(' +
+            x +
+            " " +
+            y +
+            ')"><rect width="130" height="62" rx="7"/><text x="65" y="26" text-anchor="middle">' +
+            label +
+            '</text><text class="sub" x="65" y="47" text-anchor="middle">' +
+            id +
+            "</text></g>"
+          );
+        }
+        function goGraph() {
+          const states = ["", "", "", ""];
+          if (gcStep === 2) states[0] = "grey";
+          if (gcStep === 3) {
+            states[0] = "black";
+            states[1] = "grey";
+          }
+          if (gcStep >= 4) {
+            states[0] = "black";
+            states[1] = "black";
+          }
+          if (gcStep >= 5) {
+            states[2] = "garbage";
+            states[3] = "garbage";
+          }
+          if (gcStep === 6) {
+            states[2] = "free";
+            states[3] = "free";
+          }
+          const narrow = matchMedia("(max-width:720px)").matches;
+          const ax = narrow ? 20 : 195,
+            bx = narrow ? 210 : 465,
+            top = narrow ? 100 : 58,
+            bottom = narrow ? 250 : 198;
+          const edges = narrow
+            ? '<text x="20" y="35">GC Roots</text><text x="20" y="57" class="sub">栈 / 全局数据等</text><path class="edge" d="M85 65V100"/><path class="edge" d="M150 132H210"/>'
+            : '<text x="32" y="52">GC Roots</text><text x="32" y="75" class="sub">栈 / 全局数据等</text><path class="edge" d="M125 58H195"/><path class="edge" d="M325 90H465"/>';
+          const cycle = narrow
+            ? '<path class="edge" d="M150 271C170 236 190 236 210 271"/><path class="edge" d="M210 295C190 330 170 330 150 295"/>'
+            : '<path class="edge" d="M325 220C370 185 420 185 465 220"/><path class="edge" d="M465 245C420 280 370 280 325 245"/>';
+          return (
+            '<svg class="gc-svg" viewBox="' +
+            (narrow ? "0 0 360 380" : "0 0 680 340") +
+            '" role="img" aria-labelledby="gc-svg-title"><title id="gc-svg-title">GC 根引用 A，A 引用 B；C 和 D 构成不可达环。当前阶段：' +
+            goGc[gcStep][0] +
+            '</title><defs><marker id="edge-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#7e94ad"/></marker></defs>' +
+            edges +
+            (gcStep < 6 ? cycle : "") +
+            svgNode("保留原地址", ax, top, "A", states[0]) +
+            svgNode("保留原地址", bx, top, "B", states[1]) +
+            svgNode(
+              gcStep === 6 ? "可供再次分配" : "无根路径",
+              ax,
+              bottom,
+              gcStep === 6 ? "空闲槽 C" : "C",
+              states[2],
+            ) +
+            svgNode(
+              gcStep === 6 ? "可供再次分配" : "无根路径",
+              bx,
+              bottom,
+              gcStep === 6 ? "空闲槽 D" : "D",
+              states[3],
+            ) +
+            '<text x="' +
+            (narrow ? 20 : 32) +
+            '" y="' +
+            (narrow ? 360 : 314) +
+            '" class="sub">本例堆 GC 不移动存活对象。</text></svg><p class="gc-legend">未标记：白色　待扫描：灰色虚线　已扫描：蓝色　待回收：红色虚线　空闲：绿色虚线</p>'
+          );
+        }
+        function g1Graph() {
+          const young = gcStep >= 1,
+            mixed = gcStep >= 6;
+          return (
+            '<div class="g1-regions" role="img" aria-label="G1 Region 示意：' +
+            g1Gc[gcStep][0] +
+            '"><div class="g1-region"><h3>' +
+            (young ? "原 Eden · 可复用" : "Eden") +
+            "</h3>" +
+            (young
+              ? cell("源 Region 已腾空", "free")
+              : cell("A → B", "live") +
+                cell("B", "live") +
+                cell("x · 不可达", "dead")) +
+            '</div><div class="g1-region"><h3>Survivor</h3>' +
+            (young
+              ? cell("A · 来自 Eden", "live moved") +
+                cell("B · 来自 Eden", "live moved")
+              : cell("待接收存活对象", "empty")) +
+            '</div><div class="g1-region"><h3>' +
+            (mixed ? "原 Old · 可复用" : "Old 候选") +
+            "</h3>" +
+            (mixed
+              ? cell("源 Region 已腾空", "free")
+              : cell("C · 根可达", "live") +
+                cell(
+                  "X · " + (gcStep >= 3 ? "标记为不可达" : "无根路径"),
+                  "dead",
+                )) +
+            (mixed
+              ? '<h3 style="margin-top:15px">另一个 Old Region</h3>' +
+                cell("C · 已移动", "live moved")
+              : "") +
+            '</div></div><p class="gc-legend">字母标识对象身份；同名字母出现于新 Region 表示移动。图只展开当前阶段关注的对象。</p>'
+          );
+        }
+        function renderGc() {
+          const data = gcKind === "go" ? goGc : g1Gc,
+            item = data[gcStep];
+          $("gc-stage").textContent =
+            gcKind === "go" ? "Go 对象图" : "G1 Region 示意";
+          $("gc-status").textContent = item[1];
+          $("gc-status").className = "status" + (item[2] ? " pause" : "");
+          $("gc-canvas").innerHTML = gcKind === "go" ? goGraph() : g1Graph();
+          $("gc-title").textContent = item[0];
+          $("gc-detail").textContent = item[3];
+          $("gc-caution").textContent = item[4];
+          $("gc-source").href = gcKind === "go" ? src.mgc : src.g1;
+          $("gc-prev").disabled = gcStep === 0;
+          $("gc-next").disabled = gcStep === data.length - 1;
+          $("gc-counter").textContent = gcStep + 1 + " / " + data.length;
+          stepButtons(
+            $("gc-steps"),
+            data.map((item) => item[0]),
+            gcStep,
+            (index) => {
+              stop("gc");
+              gcStep = index;
+              renderGc();
+            },
+          );
+        }
+        $("gc-kind").addEventListener("change", (event) => {
+          stop("gc");
+          gcKind = event.target.value;
+          gcStep = 0;
+          renderGc();
+        });
+        $("gc-prev").addEventListener("click", () => {
+          stop("gc");
+          gcStep = Math.max(0, gcStep - 1);
+          renderGc();
+        });
+        $("gc-next").addEventListener("click", () => {
+          stop("gc");
+          gcStep = Math.min(
+            (gcKind === "go" ? goGc : g1Gc).length - 1,
+            gcStep + 1,
+          );
+          renderGc();
+        });
+        $("gc-play").addEventListener("click", () =>
+          play(
+            "gc",
+            () => gcStep === (gcKind === "go" ? goGc : g1Gc).length - 1,
+            () => {
+              gcStep = 0;
+              renderGc();
+            },
+            () => {
+              gcStep++;
+              renderGc();
+            },
+          ),
+        );
+        function renderHb() {
+          const safe = $("hb-mode").value === "safe";
+          $("hb-publish").textContent = safe
+            ? "Go: close(done) / Java: ready = true（volatile）"
+            : "ready = true（普通读写）";
+          $("hb-acquire").textContent = safe
+            ? "Go: <-done 观察到关闭 / Java: 读到 volatile true"
+            : "if ready / while (!ready)";
+          $("hb-bridge").className = "sync-bridge" + (safe ? " on" : "");
+          $("hb-bridge").textContent = safe
+            ? "建立同步顺序：happens-before"
+            : "跨执行者缺少同步顺序";
+          $("hb-result").className = "result" + (safe ? " safe" : "");
+          $("hb-result").textContent = safe
+            ? "在本例的一次发布、没有后续并发修改的前提下，读取方通过该同步点后可以读取 data = 42。"
+            : "缺少顺序保证：Go 示例存在数据竞争；Java 普通标志位不能保证安全发布或自旋结束。不能靠运行几次的结果证明安全。";
+          $("hb-chain").textContent = safe
+            ? "写 data → 发布同步信号 → 观察该信号 → 读 data"
+            : "“先写在代码前面”只建立单个执行者内部的顺序，不能自动跨越执行者。";
+          $("hb-go").textContent = safe
+            ? "var data int\ndone := make(chan struct{})\ngo func() {\n    data = 42\n    close(done)\n}()\n<-done\nprintln(data) // 42"
+            : "var data int\nvar ready bool\ngo func() {\n    data = 42\n    ready = true\n}()\nfor !ready {} // 数据竞争\nprintln(data)";
+          $("hb-java").textContent = safe
+            ? "// 字段\nint data;\nvolatile boolean ready;\n// 写线程：data = 42; ready = true;\n// 读线程：\nwhile (!ready) {}\nSystem.out.println(data); // 42"
+            : "// 字段\nint data;\nboolean ready;\n// 写线程：data = 42; ready = true;\n// 读线程：\nwhile (!ready) {} // 缺少同步\nSystem.out.println(data);";
+        }
+        $("hb-mode").addEventListener("change", renderHb);
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) {
+            stop("life");
+            stop("gc");
+          }
+        });
+        matchMedia("(max-width:720px)").addEventListener("change", () =>
+          renderGc(),
+        );
+        renderLife();
+        renderAlloc();
+        renderGc();
+        renderHb();
+      })();
+    </script>
+  </body>
+</html>

@@ -112,6 +112,7 @@ class PublicationTests(unittest.TestCase):
             self.assertTrue(hooks.has_note_content(text))
 
     def test_visual_pages_publish_only_explicitly_selected_tools(self):
+        self.assertIn("visualizations/go-java-memory/index.html", hooks.VISUAL_PAGES)
         with TemporaryDirectory() as directory:
             root = Path(directory)
             for route in hooks.VISUAL_PAGES:

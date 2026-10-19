@@ -28,6 +28,7 @@ UNPUBLISHED_DIRECTORIES = {"资料归档", "归档", "草稿", "drafts", "tmp", 
 VISUAL_PAGES = (
     "visualizations/ticket-architecture/index.html",
     "visualizations/kafka-architecture/index.html",
+    "visualizations/go-java-memory/index.html",
 )
 
 
