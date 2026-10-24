@@ -1,5 +1,7 @@
 # Spring Security 概述
 
+相关专题：[OAuth 2.0 授权流程与 PKCE 详解](OAuth2授权流程与PKCE详解.md)，通过流程图理解第三方授权、令牌刷新、OIDC 登录与 Spring Security 角色划分。
+
 ## 1. 它是什么
 
 Spring Security 是 Spring 生态的安全框架，核心解决两个问题：
