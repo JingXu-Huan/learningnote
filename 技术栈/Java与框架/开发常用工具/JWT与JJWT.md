@@ -2,6 +2,8 @@
 
 相关专题：[OAuth 2.0 授权流程与 PKCE 详解](../MybatisPlus/Spring/SpringSecurity/OAuth2授权流程与PKCE详解.md)。OAuth 规定授权流程，JWT 是一种令牌格式；该专题用流程图说明二者与 OIDC 登录、刷新令牌的关系。
 
+方案调研：[大厂令牌方案公开资料调研](../MybatisPlus/Spring/SpringSecurity/大厂令牌方案公开资料调研.md)，对照官方产品文档与工程披露，理解 JWT、不透明凭证、会话 Cookie 和 STS 的组合。
+
 你的 `auth2Demo` 和 `Campus-Water-IQ` 都涉及 JWT。JWT 更准确地说是一种**可携带声明的令牌格式**，JJWT 是 Java 中生成和解析 JWT 的库。
 
 ## JWT 的结构
